@@ -1,0 +1,9 @@
+# Root ignores (subprojects carry their own .gitignore for build output)
+
+# Secrets — never commit real env files (.env.example stays tracked)
+.env
+
+# Local tooling / OS noise
+*.log
+logs/
+.DS_Store
