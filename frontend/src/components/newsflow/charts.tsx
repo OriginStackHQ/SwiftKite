@@ -1,10 +1,193 @@
-'use client';
-import {Area,AreaChart,Bar,BarChart,CartesianGrid,Line,LineChart,ResponsiveContainer,Tooltip,XAxis,YAxis} from 'recharts';import {timeSeries} from '@/data/mock';
-export function GrowthChart({days=30,multiplier=1,mini=false}:{days?:number;multiplier?:number;mini?:boolean}){const data=timeSeries.slice(-days).map(d=>({...d,total:Math.round(d.total*multiplier),new:d.new*multiplier}));return <div className={mini?'h-48 w-full':'chart-wrap'}><ResponsiveContainer><AreaChart data={data} margin={{top:15,right:10,left:-20,bottom:0}}><CartesianGrid vertical={false} stroke="var(--border)"/><XAxis dataKey="label" tick={{fill:'var(--muted-foreground)',fontSize:10}} axisLine={false} tickLine={false} minTickGap={50}/><YAxis tick={{fill:'var(--muted-foreground)',fontSize:10}} axisLine={false} tickLine={false}/><Tooltip contentStyle={{background:'var(--card)',borderColor:'var(--border)',borderRadius:6,fontSize:11,color:'var(--foreground)'}}/><Area name="Total subscribers" type="monotone" dataKey="total" stroke="var(--primary)" fill="var(--primary-soft)" strokeWidth={2} isAnimationActive={false}/><Line name="New subscribers" dataKey="new" stroke="var(--muted-foreground)" dot={false}/></AreaChart></ResponsiveContainer></div>}
-export function PerformanceChart({days=30,kind='delivery',multiplier=1}:{days?:number;kind?:string;multiplier?:number}){
-const data=timeSeries.slice(-days).filter((_,i)=>i%Math.max(1,Math.floor(days/12))===0).map(d=>({...d,accepted:Math.round(d.accepted*multiplier),delivered:Math.round(d.delivered*multiplier)}));
-return <div className="chart-wrap"><ResponsiveContainer>{kind==='engagement'?<BarChart data={data} margin={{left:-20,top:15,right:10}}>
-<CartesianGrid vertical={false} stroke="var(--border)"/><XAxis dataKey="label" tick={{fill:'var(--muted-foreground)',fontSize:10}} axisLine={false} tickLine={false} minTickGap={35}/><YAxis unit="%" tick={{fill:'var(--muted-foreground)',fontSize:10}} axisLine={false} tickLine={false}/><Tooltip contentStyle={{background:'var(--card)',borderColor:'var(--border)',borderRadius:6,fontSize:11,color:'var(--foreground)'}}/>
-<Bar name="Est. open rate" dataKey="opens" fill="var(--primary)" radius={[3,3,0,0]} isAnimationActive={false}/><Bar name="Est. click rate" dataKey="clicks" fill="var(--success)" radius={[3,3,0,0]} isAnimationActive={false}/></BarChart>:<LineChart data={data} margin={{left:-20,top:15,right:10}}>
-<CartesianGrid vertical={false} stroke="var(--border)"/><XAxis dataKey="label" tick={{fill:'var(--muted-foreground)',fontSize:10}} axisLine={false} tickLine={false} minTickGap={35}/><YAxis tick={{fill:'var(--muted-foreground)',fontSize:10}} axisLine={false} tickLine={false}/><Tooltip contentStyle={{background:'var(--card)',borderColor:'var(--border)',borderRadius:6,fontSize:11,color:'var(--foreground)'}}/>
-<Line name="Provider accepted" dataKey="accepted" stroke="var(--muted-foreground)" strokeDasharray="4 4" dot={false} isAnimationActive={false}/><Line name="Delivered" dataKey="delivered" stroke="var(--primary)" strokeWidth={2} dot={false} isAnimationActive={false}/><Line name="Bounced" dataKey="bounced" stroke="var(--error)" dot={false} isAnimationActive={false}/></LineChart>}</ResponsiveContainer></div>}
+"use client";
+import {
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
+import { timeSeries } from "@/data/mock";
+export function GrowthChart({
+  days = 30,
+  multiplier = 1,
+  mini = false,
+}: {
+  days?: number;
+  multiplier?: number;
+  mini?: boolean;
+}) {
+  const data = timeSeries
+    .slice(-days)
+    .map((d) => ({
+      ...d,
+      total: Math.round(d.total * multiplier),
+      new: d.new * multiplier,
+    }));
+  return (
+    <div className={mini ? "h-48 w-full" : "chart-wrap"}>
+      <ResponsiveContainer>
+        <AreaChart
+          data={data}
+          margin={{ top: 15, right: 10, left: -20, bottom: 0 }}
+        >
+          <CartesianGrid vertical={false} stroke="var(--border)" />
+          <XAxis
+            dataKey="label"
+            tick={{ fill: "var(--muted-foreground)", fontSize: 10 }}
+            axisLine={false}
+            tickLine={false}
+            minTickGap={50}
+          />
+          <YAxis
+            tick={{ fill: "var(--muted-foreground)", fontSize: 10 }}
+            axisLine={false}
+            tickLine={false}
+          />
+          <Tooltip
+            contentStyle={{
+              background: "var(--card)",
+              borderColor: "var(--border)",
+              borderRadius: 6,
+              fontSize: 11,
+              color: "var(--foreground)",
+            }}
+          />
+          <Area
+            name="Total subscribers"
+            type="monotone"
+            dataKey="total"
+            stroke="var(--primary)"
+            fill="var(--primary-soft)"
+            strokeWidth={2}
+            isAnimationActive={false}
+          />
+          <Line
+            name="New subscribers"
+            dataKey="new"
+            stroke="var(--muted-foreground)"
+            dot={false}
+          />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+export function PerformanceChart({
+  days = 30,
+  kind = "delivery",
+  multiplier = 1,
+}: {
+  days?: number;
+  kind?: string;
+  multiplier?: number;
+}) {
+  const data = timeSeries
+    .slice(-days)
+    .filter((_, i) => i % Math.max(1, Math.floor(days / 12)) === 0)
+    .map((d) => ({
+      ...d,
+      accepted: Math.round(d.accepted * multiplier),
+      delivered: Math.round(d.delivered * multiplier),
+    }));
+  return (
+    <div className="chart-wrap">
+      <ResponsiveContainer>
+        {kind === "engagement" ? (
+          <BarChart data={data} margin={{ left: -20, top: 15, right: 10 }}>
+            <CartesianGrid vertical={false} stroke="var(--border)" />
+            <XAxis
+              dataKey="label"
+              tick={{ fill: "var(--muted-foreground)", fontSize: 10 }}
+              axisLine={false}
+              tickLine={false}
+              minTickGap={35}
+            />
+            <YAxis
+              unit="%"
+              tick={{ fill: "var(--muted-foreground)", fontSize: 10 }}
+              axisLine={false}
+              tickLine={false}
+            />
+            <Tooltip
+              contentStyle={{
+                background: "var(--card)",
+                borderColor: "var(--border)",
+                borderRadius: 6,
+                fontSize: 11,
+                color: "var(--foreground)",
+              }}
+            />
+            <Bar
+              name="Est. open rate"
+              dataKey="opens"
+              fill="var(--primary)"
+              radius={[3, 3, 0, 0]}
+              isAnimationActive={false}
+            />
+            <Bar
+              name="Est. click rate"
+              dataKey="clicks"
+              fill="var(--success)"
+              radius={[3, 3, 0, 0]}
+              isAnimationActive={false}
+            />
+          </BarChart>
+        ) : (
+          <LineChart data={data} margin={{ left: -20, top: 15, right: 10 }}>
+            <CartesianGrid vertical={false} stroke="var(--border)" />
+            <XAxis
+              dataKey="label"
+              tick={{ fill: "var(--muted-foreground)", fontSize: 10 }}
+              axisLine={false}
+              tickLine={false}
+              minTickGap={35}
+            />
+            <YAxis
+              tick={{ fill: "var(--muted-foreground)", fontSize: 10 }}
+              axisLine={false}
+              tickLine={false}
+            />
+            <Tooltip
+              contentStyle={{
+                background: "var(--card)",
+                borderColor: "var(--border)",
+                borderRadius: 6,
+                fontSize: 11,
+                color: "var(--foreground)",
+              }}
+            />
+            <Line
+              name="Provider accepted"
+              dataKey="accepted"
+              stroke="var(--muted-foreground)"
+              strokeDasharray="4 4"
+              dot={false}
+              isAnimationActive={false}
+            />
+            <Line
+              name="Delivered"
+              dataKey="delivered"
+              stroke="var(--primary)"
+              strokeWidth={2}
+              dot={false}
+              isAnimationActive={false}
+            />
+            <Line
+              name="Bounced"
+              dataKey="bounced"
+              stroke="var(--error)"
+              dot={false}
+              isAnimationActive={false}
+            />
+          </LineChart>
+        )}
+      </ResponsiveContainer>
+    </div>
+  );
+}

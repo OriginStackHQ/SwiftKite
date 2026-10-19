@@ -1,8 +1,678 @@
-'use client';
-import {useState} from 'react';import Link from 'next/link';
-import {useRouter} from 'next/navigation';import {Plus,Search,ArrowUpRight,Lock,ShieldCheck,MoreHorizontal} from 'lucide-react';import {toast} from 'sonner';import {Button} from '@/components/ui/button';import {Input} from '@/components/ui/input';import {Textarea} from '@/components/ui/textarea';import {Switch} from '@/components/ui/switch';import {Dialog,DialogContent,DialogDescription,DialogHeader,DialogTitle} from '@/components/ui/dialog';import {DropdownMenu,DropdownMenuContent,DropdownMenuItem,DropdownMenuTrigger} from '@/components/ui/dropdown-menu';import {useDemo} from './store';import {CodeBlock,ConfirmDialog,CopyButton,embedSnippet,EmptyState,PageHeading,StatusBadge} from './ui';import {CreatePublicationDialog} from './publication-dialog';import {date,percent} from '@/data/mock';
-export function PublicationSelect({includeAll=true,value,onChange}:{includeAll?:boolean;value?:string;onChange?:(v:string)=>void}){const store=useDemo();return <select aria-label="Publication" className="native-select" value={value??store.publicationId} onChange={e=>(onChange||store.setPublicationId)(e.target.value)}>{includeAll&&<option value="all">All publications</option>}{store.publications.map(p=><option key={p.id} value={p.id}>{p.name}</option>)}</select>}
-export function Publications(){const{publications,subscribers,campaigns,setPublications}=useDemo();const[search,setSearch]=useState(''),[status,setStatus]=useState('All'),[create,setCreate]=useState(false),[sort,setSort]=useState('Newest');const filtered=publications.filter(p=>p.name.toLowerCase().includes(search.toLowerCase())&&(status==='All'||p.status===status)).sort((a,b)=>sort==='Name'?a.name.localeCompare(b.name):b.created.localeCompare(a.created));const completed=campaigns.filter(c=>c.status==='Completed');return <><PageHeading title="Publications" description="A home for every story you want to tell."><Button onClick={()=>setCreate(true)}><Plus/>Create publication</Button></PageHeading><div className="mb-8 flex flex-wrap gap-8 border-b pb-6 text-xs text-muted-foreground"><span><strong className="mr-2 text-xl font-semibold text-foreground">{publications.length}</strong>Publications</span><span><strong className="mr-2 text-xl font-semibold text-foreground">{subscribers.length}</strong>Subscribers</span><span><strong className="mr-2 text-xl font-semibold text-foreground">{completed.length}</strong>Campaigns sent</span><span><strong className="mr-2 text-xl font-semibold text-foreground">{percent(completed.reduce((n,c)=>n+c.delivered,0),completed.reduce((n,c)=>n+c.recipients,0))}</strong>Avg. delivery</span></div><div className="filter-toolbar"><div className="relative mr-auto w-full max-w-xs"><Search size={15} className="absolute left-3 top-2.5 text-muted-foreground"/><Input placeholder="Search publications..." className="pl-9" value={search} onChange={e=>setSearch(e.target.value)}/></div><select className="native-select" aria-label="Publication status" value={status} onChange={e=>setStatus(e.target.value)}>{['All','Active','Paused','Archived'].map(s=><option key={s}>{s}</option>)}</select><select className="native-select" aria-label="Sort publications" value={sort} onChange={e=>setSort(e.target.value)}><option>Newest</option><option>Name</option></select></div><section className="surface overflow-hidden"><div className="table-scroll"><table className="data-table"><thead><tr><th>Publication</th><th>Public ID</th><th>Subscribers</th><th>Campaigns</th><th>Status</th><th>Created</th><th/></tr></thead><tbody>{filtered.map((p,i)=><tr key={p.id}><td><div className="flex items-center gap-3"><span className={`pub-icon ${i===0?'primary':''}`}>{p.name.split(' ').map(n=>n[0]).join('')}</span><span><Link href={`/dashboard/publications/${p.id}`} className="text-sm font-semibold">{p.name}</Link><span className="mt-1 block max-w-64 whitespace-normal text-xs leading-5 text-muted-foreground">{p.description}</span></span></div></td><td><div className="flex items-center gap-2"><span className="font-mono text-[10px] text-muted-foreground">{p.id}</span><CopyButton value={p.id} label=""/></div></td><td>{subscribers.filter(s=>s.publicationId===p.id).length}</td><td>{campaigns.filter(c=>c.publicationId===p.id).length}</td><td><StatusBadge status={p.status}/></td><td className="text-muted-foreground">{date(p.created)}</td><td><div className="flex items-center gap-1"><Button variant="outline" size="sm" asChild><Link href={`/dashboard/publications/${p.id}`}>Manage<ArrowUpRight/></Link></Button><DropdownMenu><DropdownMenuTrigger asChild><Button size="icon" variant="ghost" aria-label={`Actions for ${p.name}`}><MoreHorizontal/></Button></DropdownMenuTrigger><DropdownMenuContent><DropdownMenuItem onSelect={()=>{setPublications(all=>all.map(pub=>pub.id===p.id?{...pub,status:pub.status==='Active'?'Paused':'Active'}:pub));toast.success('Publication status updated in demo')}}>{p.status==='Active'?'Pause':'Activate'}</DropdownMenuItem><DropdownMenuItem asChild><Link href={`/p/${p.id}/archive`}>View archive</Link></DropdownMenuItem></DropdownMenuContent></DropdownMenu></div></td></tr>)}</tbody></table></div>{filtered.length===0&&<EmptyState title={publications.length?'No matching publications':'Your next chapter starts here'} text="Create a publication or adjust your filters." action={<Button onClick={()=>setCreate(true)}>Create publication</Button>}/>}<div className="table-footer"><span>{filtered.length} publications</span><span>Public IDs are safe to share.</span></div></section><CreatePublicationDialog open={create} onOpenChange={setCreate}/></>}
-export function EmbedDialog({open,onOpenChange,id}:{open:boolean;onOpenChange:(v:boolean)=>void;id?:string}){const{publications,publicationId}=useDemo();const[selected,setSelected]=useState(id|| (publicationId==='all'?publications[0]?.id:publicationId)||'');return <Dialog open={open} onOpenChange={onOpenChange}><DialogContent className="max-h-[90vh] overflow-auto bg-card sm:max-w-3xl"><DialogHeader><DialogTitle>Bring your readers along</DialogTitle><DialogDescription>Add this form to your website to collect new subscribers. Demo endpoint — no real submissions.</DialogDescription></DialogHeader><PublicationSelect includeAll={false} value={selected} onChange={setSelected}/><CodeBlock code={embedSnippet(selected)}/><p className="subtle-note">The hidden website field is a spam honeypot. Double opt-in is always enabled.</p><SubscribePreview name={publications.find(p=>p.id===selected)?.name||'Your newsletter'}/></DialogContent></Dialog>}
-function SubscribePreview({name}:{name:string}){return <div className="border-t pt-6"><p className="eyebrow mb-3">Form preview</p><h3 className="text-xl font-semibold">A little more {name} in your inbox.</h3><p className="subtle-note mb-4 mt-2">Fresh ideas, thoughtfully delivered.</p><form className="flex flex-wrap gap-2" onSubmit={e=>{e.preventDefault();toast.success('Demo subscription received — no email sent')}}><Input type="email" aria-label="Subscription preview email" placeholder="you@example.com" required className="max-w-xs"/><Button type="submit">Subscribe<ArrowUpRight/></Button></form></div>}
-export function PublicationSettings({id}:{id:string}){const store=useDemo();const original=store.publications.find(p=>p.id===id);const[form,setForm]=useState(original),[tab,setTab]=useState('General'),[dirty,setDirty]=useState(false),[remove,setRemove]=useState(false),[confirmationSubject,setConfirmationSubject]=useState(original?.confirmationSubject||'Confirm your subscription'),[previewText,setPreviewText]=useState(original?.confirmationPreview||'One last step to join our newsletter'),[redirect,setRedirect]=useState(original?.redirectUrl||'');const router=useRouter();if(!original||!form)return <EmptyState title="Publication not found" text="This publication may have been removed." action={<Button asChild><Link href="/dashboard/publications">Back to publications</Link></Button>}/>;const change=(key:keyof typeof form,value:string)=>{setForm({...form,[key]:value});setDirty(true)};const field=(key:'name'|'description'|'senderName'|'senderEmail'|'replyTo',label:string,type='text')=><div className="form-field"><label htmlFor={`publication-${key}`}>{label}</label>{key==='description'?<Textarea id={`publication-${key}`} value={form[key]} onChange={e=>change(key,e.target.value)}/>:<Input id={`publication-${key}`} type={type} value={form[key]} onChange={e=>change(key,e.target.value)} required/>}</div>;const save=()=>{if(form.name.trim().length<2||![form.senderEmail,form.replyTo].every(v=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v))){toast.error('Enter a name and valid sender and reply-to emails');return}if(redirect&&!/^https?:\/\//.test(redirect)){toast.error('Use a valid http or https redirect URL');return}store.setPublications(p=>p.map(pub=>pub.id===id?{...form,confirmationSubject,confirmationPreview:previewText,redirectUrl:redirect}:pub));setDirty(false);toast.success('Publication changes saved in demo')};return <><Link href="/dashboard/publications" className="mb-5 inline-block text-xs text-muted-foreground">← Back to publications</Link><PageHeading title={form.name} description={form.description}><StatusBadge status={form.status}/><Button variant="outline" asChild><Link href={`/p/${id}/archive`}>View archive<ArrowUpRight/></Link></Button></PageHeading><div className="tab-row">{['General','Sender','Public ID','Embed form','Subscription preferences'].map(t=><Button key={t} variant="ghost" className={tab===t?'active':''} onClick={()=>setTab(t)}>{t}</Button>)}</div><div className="grid gap-12 lg:grid-cols-[240px_1fr]"><aside><h2 className="text-lg font-semibold">{tab}</h2><p className="subtle-note mt-3">{tab==='General'?'The name and details your readers will see.':tab==='Sender'?'Make every issue feel familiar in your readers’ inbox.':tab==='Public ID'?'A public identifier, never a secret.':tab==='Embed form'?'Turn visitors into readers with a simple form.':'Respect your readers’ consent, from the first click.'}</p></aside><section className="max-w-2xl space-y-6">{tab==='General'&&<>{field('name','Publication name')}{field('description','Short description')}<div className="flex items-center justify-between border-y py-5"><div><p className="font-medium">Publication status</p><p className="subtle-note">Paused publications cannot send campaigns.</p></div><Switch aria-label="Publication active" checked={form.status==='Active'} onCheckedChange={v=>change('status',v?'Active':'Paused')}/></div><div className="flex justify-between"><span className="subtle-note">Created {date(form.created)}</span><Button variant="ghost" className="text-destructive" onClick={()=>setRemove(true)}>Delete publication</Button></div></>}{tab==='Sender'&&<>{field('senderName','From name')}<div className="flex items-center justify-between">{field('senderEmail','From email','email')}<StatusBadge status="Verified"/></div>{field('replyTo','Reply-to email','email')}<p className="subtle-note">Sender verification is illustrative demo information.</p></>}{tab==='Public ID'&&<><div className="flex items-center gap-3 rounded-md border bg-muted p-4"><Lock size={16} className="text-muted-foreground"/><span className="flex-1 font-mono text-sm">{id}</span><CopyButton value={id}/></div><p className="subtle-note flex items-start gap-2"><ShieldCheck className="shrink-0 text-success" size={18}/>This ID is public. It can only be used to collect new subscribers; it never grants access to your data.</p></>}{tab==='Embed form'&&<><CodeBlock code={embedSnippet(id)}/><p className="subtle-note">The hidden website field is a spam honeypot. This is a demo endpoint.</p><SubscribePreview name={form.name}/></>}{tab==='Subscription preferences'&&<><div className="flex items-start justify-between border-b pb-5"><div><p className="font-medium">Double opt-in <Lock className="ml-2 inline text-muted-foreground" size={13}/></p><p className="subtle-note mt-2">Always on. Subscribers must confirm their email before receiving a campaign.</p></div><Switch checked disabled aria-label="Double opt-in always enabled"/></div><div className="form-field"><label htmlFor="confirm-subject">Confirmation email subject</label><Input id="confirm-subject" value={confirmationSubject} onChange={e=>{setConfirmationSubject(e.target.value);setDirty(true)}}/></div><div className="form-field"><label htmlFor="confirm-preview">Preview text</label><Input id="confirm-preview" value={previewText} onChange={e=>{setPreviewText(e.target.value);setDirty(true)}}/></div><div className="form-field"><label htmlFor="redirect">Welcome redirect URL</label><Input id="redirect" type="url" placeholder="https://yourwebsite.com/welcome" value={redirect} onChange={e=>{setRedirect(e.target.value);setDirty(true)}}/></div></>}</section></div>{dirty&&<div className="save-bar"><span className="text-xs">You have unsaved changes</span><div className="flex gap-2"><Button variant="outline" onClick={()=>{setForm(original);setDirty(false)}}>Discard</Button><Button onClick={save}>Save changes</Button></div></div>}<ConfirmDialog open={remove} onOpenChange={setRemove} title="Delete publication?" description="This will remove the publication and its associated demo subscribers and campaigns." confirmText={form.name} action="Delete publication" destructive onConfirm={()=>{store.setPublications(p=>p.filter(pub=>pub.id!==id));store.setSubscribers(s=>s.filter(sub=>sub.publicationId!==id));store.setCampaigns(c=>c.filter(cmp=>cmp.publicationId!==id));if(store.publicationId===id)store.setPublicationId('all');toast.success('Publication deleted in demo');router.push('/dashboard/publications')}}/></>}
+"use client";
+import { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import {
+  Plus,
+  Search,
+  ArrowUpRight,
+  Lock,
+  ShieldCheck,
+  MoreHorizontal,
+} from "lucide-react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useDemo } from "./store";
+import {
+  CodeBlock,
+  ConfirmDialog,
+  CopyButton,
+  embedSnippet,
+  EmptyState,
+  PageHeading,
+  StatusBadge,
+} from "./ui";
+import { CreatePublicationDialog } from "./publication-dialog";
+import { date, percent } from "@/data/mock";
+export function PublicationSelect({
+  includeAll = true,
+  value,
+  onChange,
+}: {
+  includeAll?: boolean;
+  value?: string;
+  onChange?: (v: string) => void;
+}) {
+  const store = useDemo();
+  return (
+    <select
+      aria-label="Publication"
+      className="native-select"
+      value={value ?? store.publicationId}
+      onChange={(e) => (onChange || store.setPublicationId)(e.target.value)}
+    >
+      {includeAll && <option value="all">All publications</option>}
+      {store.publications.map((p) => (
+        <option key={p.id} value={p.id}>
+          {p.name}
+        </option>
+      ))}
+    </select>
+  );
+}
+export function Publications() {
+  const { publications, subscribers, campaigns, setPublications } = useDemo();
+  const [search, setSearch] = useState(""),
+    [status, setStatus] = useState("All"),
+    [create, setCreate] = useState(false),
+    [sort, setSort] = useState("Newest");
+  const filtered = publications
+    .filter(
+      (p) =>
+        p.name.toLowerCase().includes(search.toLowerCase()) &&
+        (status === "All" || p.status === status),
+    )
+    .sort((a, b) =>
+      sort === "Name"
+        ? a.name.localeCompare(b.name)
+        : b.created.localeCompare(a.created),
+    );
+  const completed = campaigns.filter((c) => c.status === "Completed");
+  return (
+    <>
+      <PageHeading
+        title="Publications"
+        description="A home for every story you want to tell."
+      >
+        <Button onClick={() => setCreate(true)}>
+          <Plus />
+          Create publication
+        </Button>
+      </PageHeading>
+      <div className="mb-8 flex flex-wrap gap-8 border-b pb-6 text-xs text-muted-foreground">
+        <span>
+          <strong className="mr-2 text-xl font-semibold text-foreground">
+            {publications.length}
+          </strong>
+          Publications
+        </span>
+        <span>
+          <strong className="mr-2 text-xl font-semibold text-foreground">
+            {subscribers.length}
+          </strong>
+          Subscribers
+        </span>
+        <span>
+          <strong className="mr-2 text-xl font-semibold text-foreground">
+            {completed.length}
+          </strong>
+          Campaigns sent
+        </span>
+        <span>
+          <strong className="mr-2 text-xl font-semibold text-foreground">
+            {percent(
+              completed.reduce((n, c) => n + c.delivered, 0),
+              completed.reduce((n, c) => n + c.recipients, 0),
+            )}
+          </strong>
+          Avg. delivery
+        </span>
+      </div>
+      <div className="filter-toolbar">
+        <div className="relative mr-auto w-full max-w-xs">
+          <Search
+            size={15}
+            className="absolute left-3 top-2.5 text-muted-foreground"
+          />
+          <Input
+            placeholder="Search publications..."
+            className="pl-9"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <select
+          className="native-select"
+          aria-label="Publication status"
+          value={status}
+          onChange={(e) => setStatus(e.target.value)}
+        >
+          {["All", "Active", "Paused", "Archived"].map((s) => (
+            <option key={s}>{s}</option>
+          ))}
+        </select>
+        <select
+          className="native-select"
+          aria-label="Sort publications"
+          value={sort}
+          onChange={(e) => setSort(e.target.value)}
+        >
+          <option>Newest</option>
+          <option>Name</option>
+        </select>
+      </div>
+      <section className="surface overflow-hidden">
+        <div className="table-scroll">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Publication</th>
+                <th>Public ID</th>
+                <th>Subscribers</th>
+                <th>Campaigns</th>
+                <th>Status</th>
+                <th>Created</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((p, i) => (
+                <tr key={p.id}>
+                  <td>
+                    <div className="flex items-center gap-3">
+                      <span className={`pub-icon ${i === 0 ? "primary" : ""}`}>
+                        {p.name
+                          .split(" ")
+                          .map((n) => n[0])
+                          .join("")}
+                      </span>
+                      <span>
+                        <Link
+                          href={`/dashboard/publications/${p.id}`}
+                          className="text-sm font-semibold"
+                        >
+                          {p.name}
+                        </Link>
+                        <span className="mt-1 block max-w-64 whitespace-normal text-xs leading-5 text-muted-foreground">
+                          {p.description}
+                        </span>
+                      </span>
+                    </div>
+                  </td>
+                  <td>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-[10px] text-muted-foreground">
+                        {p.id}
+                      </span>
+                      <CopyButton value={p.id} label="" />
+                    </div>
+                  </td>
+                  <td>
+                    {subscribers.filter((s) => s.publicationId === p.id).length}
+                  </td>
+                  <td>
+                    {campaigns.filter((c) => c.publicationId === p.id).length}
+                  </td>
+                  <td>
+                    <StatusBadge status={p.status} />
+                  </td>
+                  <td className="text-muted-foreground">{date(p.created)}</td>
+                  <td>
+                    <div className="flex items-center gap-1">
+                      <Button variant="outline" size="sm" asChild>
+                        <Link href={`/dashboard/publications/${p.id}`}>
+                          Manage
+                          <ArrowUpRight />
+                        </Link>
+                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            aria-label={`Actions for ${p.name}`}
+                          >
+                            <MoreHorizontal />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent>
+                          <DropdownMenuItem
+                            onSelect={() => {
+                              setPublications((all) =>
+                                all.map((pub) =>
+                                  pub.id === p.id
+                                    ? {
+                                        ...pub,
+                                        status:
+                                          pub.status === "Active"
+                                            ? "Paused"
+                                            : "Active",
+                                      }
+                                    : pub,
+                                ),
+                              );
+                              toast.success(
+                                "Publication status updated in demo",
+                              );
+                            }}
+                          >
+                            {p.status === "Active" ? "Pause" : "Activate"}
+                          </DropdownMenuItem>
+                          <DropdownMenuItem asChild>
+                            <Link href={`/p/${p.id}/archive`}>
+                              View archive
+                            </Link>
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        {filtered.length === 0 && (
+          <EmptyState
+            title={
+              publications.length
+                ? "No matching publications"
+                : "Your next chapter starts here"
+            }
+            text="Create a publication or adjust your filters."
+            action={
+              <Button onClick={() => setCreate(true)}>
+                Create publication
+              </Button>
+            }
+          />
+        )}
+        <div className="table-footer">
+          <span>{filtered.length} publications</span>
+          <span>Public IDs are safe to share.</span>
+        </div>
+      </section>
+      <CreatePublicationDialog open={create} onOpenChange={setCreate} />
+    </>
+  );
+}
+export function EmbedDialog({
+  open,
+  onOpenChange,
+  id,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  id?: string;
+}) {
+  const { publications, publicationId } = useDemo();
+  const [selected, setSelected] = useState(
+    id || (publicationId === "all" ? publications[0]?.id : publicationId) || "",
+  );
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[90vh] overflow-auto bg-card sm:max-w-3xl">
+        <DialogHeader>
+          <DialogTitle>Bring your readers along</DialogTitle>
+          <DialogDescription>
+            Add this form to your website to collect new subscribers. Demo
+            endpoint — no real submissions.
+          </DialogDescription>
+        </DialogHeader>
+        <PublicationSelect
+          includeAll={false}
+          value={selected}
+          onChange={setSelected}
+        />
+        <CodeBlock code={embedSnippet(selected)} />
+        <p className="subtle-note">
+          The hidden website field is a spam honeypot. Double opt-in is always
+          enabled.
+        </p>
+        <SubscribePreview
+          name={
+            publications.find((p) => p.id === selected)?.name ||
+            "Your newsletter"
+          }
+        />
+      </DialogContent>
+    </Dialog>
+  );
+}
+function SubscribePreview({ name }: { name: string }) {
+  return (
+    <div className="border-t pt-6">
+      <p className="eyebrow mb-3">Form preview</p>
+      <h3 className="text-xl font-semibold">
+        A little more {name} in your inbox.
+      </h3>
+      <p className="subtle-note mb-4 mt-2">
+        Fresh ideas, thoughtfully delivered.
+      </p>
+      <form
+        className="flex flex-wrap gap-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          toast.success("Demo subscription received — no email sent");
+        }}
+      >
+        <Input
+          type="email"
+          aria-label="Subscription preview email"
+          placeholder="you@example.com"
+          required
+          className="max-w-xs"
+        />
+        <Button type="submit">
+          Subscribe
+          <ArrowUpRight />
+        </Button>
+      </form>
+    </div>
+  );
+}
+export function PublicationSettings({ id }: { id: string }) {
+  const store = useDemo();
+  const original = store.publications.find((p) => p.id === id);
+  const [form, setForm] = useState(original),
+    [tab, setTab] = useState("General"),
+    [dirty, setDirty] = useState(false),
+    [remove, setRemove] = useState(false),
+    [confirmationSubject, setConfirmationSubject] = useState(
+      original?.confirmationSubject || "Confirm your subscription",
+    ),
+    [previewText, setPreviewText] = useState(
+      original?.confirmationPreview || "One last step to join our newsletter",
+    ),
+    [redirect, setRedirect] = useState(original?.redirectUrl || "");
+  const router = useRouter();
+  if (!original || !form)
+    return (
+      <EmptyState
+        title="Publication not found"
+        text="This publication may have been removed."
+        action={
+          <Button asChild>
+            <Link href="/dashboard/publications">Back to publications</Link>
+          </Button>
+        }
+      />
+    );
+  const change = (key: keyof typeof form, value: string) => {
+    setForm({ ...form, [key]: value });
+    setDirty(true);
+  };
+  const field = (
+    key: "name" | "description" | "senderName" | "senderEmail" | "replyTo",
+    label: string,
+    type = "text",
+  ) => (
+    <div className="form-field">
+      <label htmlFor={`publication-${key}`}>{label}</label>
+      {key === "description" ? (
+        <Textarea
+          id={`publication-${key}`}
+          value={form[key]}
+          onChange={(e) => change(key, e.target.value)}
+        />
+      ) : (
+        <Input
+          id={`publication-${key}`}
+          type={type}
+          value={form[key]}
+          onChange={(e) => change(key, e.target.value)}
+          required
+        />
+      )}
+    </div>
+  );
+  const save = () => {
+    if (
+      form.name.trim().length < 2 ||
+      ![form.senderEmail, form.replyTo].every((v) =>
+        /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v),
+      )
+    ) {
+      toast.error("Enter a name and valid sender and reply-to emails");
+      return;
+    }
+    if (redirect && !/^https?:\/\//.test(redirect)) {
+      toast.error("Use a valid http or https redirect URL");
+      return;
+    }
+    store.setPublications((p) =>
+      p.map((pub) =>
+        pub.id === id
+          ? {
+              ...form,
+              confirmationSubject,
+              confirmationPreview: previewText,
+              redirectUrl: redirect,
+            }
+          : pub,
+      ),
+    );
+    setDirty(false);
+    toast.success("Publication changes saved in demo");
+  };
+  return (
+    <>
+      <Link
+        href="/dashboard/publications"
+        className="mb-5 inline-block text-xs text-muted-foreground"
+      >
+        ← Back to publications
+      </Link>
+      <PageHeading title={form.name} description={form.description}>
+        <StatusBadge status={form.status} />
+        <Button variant="outline" asChild>
+          <Link href={`/p/${id}/archive`}>
+            View archive
+            <ArrowUpRight />
+          </Link>
+        </Button>
+      </PageHeading>
+      <div className="tab-row">
+        {[
+          "General",
+          "Sender",
+          "Public ID",
+          "Embed form",
+          "Subscription preferences",
+        ].map((t) => (
+          <Button
+            key={t}
+            variant="ghost"
+            className={tab === t ? "active" : ""}
+            onClick={() => setTab(t)}
+          >
+            {t}
+          </Button>
+        ))}
+      </div>
+      <div className="grid gap-12 lg:grid-cols-[240px_1fr]">
+        <aside>
+          <h2 className="text-lg font-semibold">{tab}</h2>
+          <p className="subtle-note mt-3">
+            {tab === "General"
+              ? "The name and details your readers will see."
+              : tab === "Sender"
+                ? "Make every issue feel familiar in your readers’ inbox."
+                : tab === "Public ID"
+                  ? "A public identifier, never a secret."
+                  : tab === "Embed form"
+                    ? "Turn visitors into readers with a simple form."
+                    : "Respect your readers’ consent, from the first click."}
+          </p>
+        </aside>
+        <section className="max-w-2xl space-y-6">
+          {tab === "General" && (
+            <>
+              {field("name", "Publication name")}
+              {field("description", "Short description")}
+              <div className="flex items-center justify-between border-y py-5">
+                <div>
+                  <p className="font-medium">Publication status</p>
+                  <p className="subtle-note">
+                    Paused publications cannot send campaigns.
+                  </p>
+                </div>
+                <Switch
+                  aria-label="Publication active"
+                  checked={form.status === "Active"}
+                  onCheckedChange={(v) =>
+                    change("status", v ? "Active" : "Paused")
+                  }
+                />
+              </div>
+              <div className="flex justify-between">
+                <span className="subtle-note">
+                  Created {date(form.created)}
+                </span>
+                <Button
+                  variant="ghost"
+                  className="text-destructive"
+                  onClick={() => setRemove(true)}
+                >
+                  Delete publication
+                </Button>
+              </div>
+            </>
+          )}
+          {tab === "Sender" && (
+            <>
+              {field("senderName", "From name")}
+              <div className="flex items-center justify-between">
+                {field("senderEmail", "From email", "email")}
+                <StatusBadge status="Verified" />
+              </div>
+              {field("replyTo", "Reply-to email", "email")}
+              <p className="subtle-note">
+                Sender verification is illustrative demo information.
+              </p>
+            </>
+          )}
+          {tab === "Public ID" && (
+            <>
+              <div className="flex items-center gap-3 rounded-md border bg-muted p-4">
+                <Lock size={16} className="text-muted-foreground" />
+                <span className="flex-1 font-mono text-sm">{id}</span>
+                <CopyButton value={id} />
+              </div>
+              <p className="subtle-note flex items-start gap-2">
+                <ShieldCheck className="shrink-0 text-success" size={18} />
+                This ID is public. It can only be used to collect new
+                subscribers; it never grants access to your data.
+              </p>
+            </>
+          )}
+          {tab === "Embed form" && (
+            <>
+              <CodeBlock code={embedSnippet(id)} />
+              <p className="subtle-note">
+                The hidden website field is a spam honeypot. This is a demo
+                endpoint.
+              </p>
+              <SubscribePreview name={form.name} />
+            </>
+          )}
+          {tab === "Subscription preferences" && (
+            <>
+              <div className="flex items-start justify-between border-b pb-5">
+                <div>
+                  <p className="font-medium">
+                    Double opt-in{" "}
+                    <Lock
+                      className="ml-2 inline text-muted-foreground"
+                      size={13}
+                    />
+                  </p>
+                  <p className="subtle-note mt-2">
+                    Always on. Subscribers must confirm their email before
+                    receiving a campaign.
+                  </p>
+                </div>
+                <Switch
+                  checked
+                  disabled
+                  aria-label="Double opt-in always enabled"
+                />
+              </div>
+              <div className="form-field">
+                <label htmlFor="confirm-subject">
+                  Confirmation email subject
+                </label>
+                <Input
+                  id="confirm-subject"
+                  value={confirmationSubject}
+                  onChange={(e) => {
+                    setConfirmationSubject(e.target.value);
+                    setDirty(true);
+                  }}
+                />
+              </div>
+              <div className="form-field">
+                <label htmlFor="confirm-preview">Preview text</label>
+                <Input
+                  id="confirm-preview"
+                  value={previewText}
+                  onChange={(e) => {
+                    setPreviewText(e.target.value);
+                    setDirty(true);
+                  }}
+                />
+              </div>
+              <div className="form-field">
+                <label htmlFor="redirect">Welcome redirect URL</label>
+                <Input
+                  id="redirect"
+                  type="url"
+                  placeholder="https://yourwebsite.com/welcome"
+                  value={redirect}
+                  onChange={(e) => {
+                    setRedirect(e.target.value);
+                    setDirty(true);
+                  }}
+                />
+              </div>
+            </>
+          )}
+        </section>
+      </div>
+      {dirty && (
+        <div className="save-bar">
+          <span className="text-xs">You have unsaved changes</span>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setForm(original);
+                setDirty(false);
+              }}
+            >
+              Discard
+            </Button>
+            <Button onClick={save}>Save changes</Button>
+          </div>
+        </div>
+      )}
+      <ConfirmDialog
+        open={remove}
+        onOpenChange={setRemove}
+        title="Delete publication?"
+        description="This will remove the publication and its associated demo subscribers and campaigns."
+        confirmText={form.name}
+        action="Delete publication"
+        destructive
+        onConfirm={() => {
+          store.setPublications((p) => p.filter((pub) => pub.id !== id));
+          store.setSubscribers((s) =>
+            s.filter((sub) => sub.publicationId !== id),
+          );
+          store.setCampaigns((c) =>
+            c.filter((cmp) => cmp.publicationId !== id),
+          );
+          if (store.publicationId === id) store.setPublicationId("all");
+          toast.success("Publication deleted in demo");
+          router.push("/dashboard/publications");
+        }}
+      />
+    </>
+  );
+}

@@ -7,7 +7,11 @@ export const metadata = pageMetadata(
 );
 
 export function generateStaticParams() {
-  return [{ publicId: "pub_8f3k2j" }, { publicId: "pub_q7m9z1" }, { publicId: "pub_t4k8n6" }];
+  return [
+    { publicId: "pub_8f3k2j" },
+    { publicId: "pub_q7m9z1" },
+    { publicId: "pub_t4k8n6" },
+  ];
 }
 
 export default async function Page({
