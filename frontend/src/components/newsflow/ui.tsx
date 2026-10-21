@@ -1,14 +1,7 @@
 "use client";
 import { useState, type ReactNode } from "react";
 import Image from "next/image";
-import {
-  Check,
-  Copy,
-  Info,
-  MailOpen,
-  TrendingDown,
-  TrendingUp,
-} from "lucide-react";
+import { Check, Copy, Info, MailOpen, TrendingDown, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
 import { Area, AreaChart, ResponsiveContainer } from "recharts";
 import { Button } from "@/components/ui/button";
@@ -21,12 +14,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 export function Brand({ compact = false }: { compact?: boolean }) {
   return (
@@ -76,11 +64,7 @@ export function PageHeading({
         <h1>{title}</h1>
         <p>{description}</p>
       </div>
-      {children && (
-        <div className="flex w-full flex-wrap gap-2 md:w-auto md:justify-end">
-          {children}
-        </div>
-      )}
+      {children && <div className="flex w-full flex-wrap gap-2 md:w-auto md:justify-end">{children}</div>}
     </div>
   );
 }
@@ -103,14 +87,8 @@ export function MetricStrip({ items }: { items: Metric[] }) {
           </div>
           <div className="metric-value">{item.value}</div>
           {item.change && (
-            <div
-              className={cn("metric-change", !item.good && "text-destructive")}
-            >
-              {item.good ? (
-                <TrendingUp size={13} />
-              ) : (
-                <TrendingDown size={13} />
-              )}
+            <div className={cn("metric-change", !item.good && "text-destructive")}>
+              {item.good ? <TrendingUp size={13} /> : <TrendingDown size={13} />}
               {item.change}
               <span className="text-muted-foreground">vs. prior</span>
             </div>
@@ -140,27 +118,16 @@ export function InfoTip({ text }: { text: string }) {
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
-          <button
-            className="inline-flex text-muted-foreground"
-            aria-label={text}
-          >
+          <button className="inline-flex text-muted-foreground" aria-label={text}>
             <Info size={13} />
           </button>
         </TooltipTrigger>
-        <TooltipContent className="max-w-64 bg-foreground text-background">
-          {text}
-        </TooltipContent>
+        <TooltipContent className="max-w-64 bg-foreground text-background">{text}</TooltipContent>
       </Tooltip>
     </TooltipProvider>
   );
 }
-export function CopyButton({
-  value,
-  label = "Copy",
-}: {
-  value: string;
-  label?: string;
-}) {
+export function CopyButton({ value, label = "Copy" }: { value: string; label?: string }) {
   const [copied, setCopied] = useState(false);
   return (
     <Button
@@ -242,11 +209,7 @@ export function ConfirmDialog({
             <label htmlFor="typed-confirm">
               Type <span className="font-mono">{confirmText}</span> to confirm
             </label>
-            <Input
-              id="typed-confirm"
-              value={typed}
-              onChange={(e) => setTyped(e.target.value)}
-            />
+            <Input id="typed-confirm" value={typed} onChange={(e) => setTyped(e.target.value)} />
           </div>
         )}
         <DialogFooter className="gap-2">
@@ -281,15 +244,8 @@ export function PageSkeleton() {
     </div>
   );
 }
-export function EmptyState({
-  title,
-  text,
-  action,
-}: {
-  title: string;
-  text: string;
-  action?: ReactNode;
-}) {
+
+export function EmptyState({ title, text, action }: { title: string; text: string; action?: ReactNode }) {
   return (
     <div className="empty-state">
       <h3>{title}</h3>
@@ -317,20 +273,10 @@ export function NewsletterPreview({
       </div>
       <h1>{subject || "Untitled campaign"}</h1>
       {image && (
-        <Image
-          src={image}
-          alt="Sunlit desk with a laptop, plant and coffee"
-          width={1280}
-          height={768}
-          loading="lazy"
-        />
+        <Image src={image} alt="Sunlit desk with a laptop, plant and coffee" width={1280} height={768} loading="lazy" />
       )}
       <div dangerouslySetInnerHTML={{ __html: html }} />
-      <Button
-        className="mt-3"
-        size="sm"
-        onClick={() => toast.info("You’re viewing the full demo issue")}
-      >
+      <Button className="mt-3" size="sm" onClick={() => toast.info("You’re viewing the full demo issue")}>
         Read the full issue
       </Button>
       <footer>

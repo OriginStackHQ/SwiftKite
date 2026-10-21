@@ -9,7 +9,6 @@ import { PublicationSelect } from "./publications";
 import { EmptyState, PageHeading, StatusBadge } from "./ui";
 import { GrowthChart, PerformanceChart } from "./charts";
 import { date, percent } from "@/data/mock";
-// eslint-disable-next-line react-hooks/set-state-in-effect -- intentional post-hydration read of localStorage; reading it during render would cause a hydration mismatch
 export function Analytics() {
   const { campaigns, publicationId } = useDemo();
   const [days, setDays] = useState(30),
@@ -18,6 +17,7 @@ export function Analytics() {
     [metric, setMetric] = useState("Open rate"),
     [sort, setSort] = useState(false);
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional post-hydration read of localStorage; reading it during render would cause a hydration mismatch
     setNotice(localStorage.getItem("newsflow-analytics-dismissed") !== "true");
   }, []);
   const rows = campaigns.filter(

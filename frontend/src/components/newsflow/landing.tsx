@@ -24,6 +24,7 @@ import { toast } from "sonner";
 import { Brand, MetricStrip, StatusBadge } from "./ui";
 import { GrowthChart } from "./charts";
 import { useDemo } from "./store";
+import { useAuth } from "@/lib/auth";
 const desk = "/editorial-desk.jpg";
 const faqs = [
   [
@@ -51,6 +52,7 @@ export function Landing() {
   const [faq, setFaq] = useState<number | null>(0),
     [mobile, setMobile] = useState(false);
   const { theme, setTheme } = useDemo();
+  const { isAuthenticated, isLoading } = useAuth();
   const scroll = (id: string) =>
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
   return (
@@ -74,15 +76,35 @@ export function Landing() {
             >
               {theme === "dark" ? <Sun /> : <Moon />}
             </Button>
-            <Button variant="ghost" className="hidden sm:inline-flex" asChild>
-              <Link href="/login">Sign in</Link>
-            </Button>
-            <Button asChild>
-              <Link href="/signup">
-                Get started
-                <ArrowUpRight />
-              </Link>
-            </Button>
+            {isLoading ? (
+              <div
+                className="h-9 w-24 animate-pulse rounded-md bg-muted"
+                aria-hidden
+              />
+            ) : isAuthenticated ? (
+              <Button asChild>
+                <Link href="/dashboard">
+                  Dashboard
+                  <ArrowUpRight />
+                </Link>
+              </Button>
+            ) : (
+              <>
+                <Button
+                  variant="ghost"
+                  className="hidden sm:inline-flex"
+                  asChild
+                >
+                  <Link href="/sign-in">Sign in</Link>
+                </Button>
+                <Button asChild>
+                  <Link href="/sign-up">
+                    Get started
+                    <ArrowUpRight />
+                  </Link>
+                </Button>
+              </>
+            )}
             <Button
               variant="ghost"
               size="icon"
@@ -99,7 +121,14 @@ export function Landing() {
             <button onClick={() => scroll("features")}>Features</button>
             <button onClick={() => scroll("how-it-works")}>How it works</button>
             <button onClick={() => scroll("faq")}>FAQ</button>
-            <Link href="/login">Sign in</Link>
+            {!isLoading &&
+              (isAuthenticated ? (
+                <Link href="/dashboard" className="font-medium text-primary">
+                  Dashboard
+                </Link>
+              ) : (
+                <Link href="/sign-in">Sign in</Link>
+              ))}
           </div>
         )}
       </header>
@@ -121,7 +150,7 @@ export function Landing() {
           </p>
           <div className="mt-7 flex flex-wrap justify-center gap-3">
             <Button size="lg" asChild>
-              <Link href="/signup">
+              <Link href="/sign-up">
                 Start for free
                 <ArrowRight />
               </Link>
@@ -343,7 +372,7 @@ export function Landing() {
               Your voice. Your audience. Your next chapter.
             </p>
             <Button size="lg" asChild>
-              <Link href="/signup">
+              <Link href="/sign-up">
                 Start your newsletter
                 <ArrowRight />
               </Link>

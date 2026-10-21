@@ -14,7 +14,7 @@ import {
   type Subscriber,
   type Campaign,
 } from "@/data/mock";
-import { Toaster } from "sonner";
+import { Toaster } from "@/components/ui/sonner";
 type Store = {
   publications: Publication[];
   setPublications: React.Dispatch<React.SetStateAction<Publication[]>>;
@@ -30,7 +30,6 @@ type Store = {
   setProfile: (p: { name: string; email: string }) => void;
 };
 const Context = createContext<Store | null>(null);
-// eslint-disable-next-line react-hooks/set-state-in-effect -- intentional post-hydration theme init from localStorage; reading it during render would cause a hydration mismatch
 export function DemoProvider({ children }: { children: ReactNode }) {
   const [publications, setPublications] = useState(initialPublications);
   const [subscribers, setSubscribers] = useState(initialSubscribers);
@@ -42,6 +41,7 @@ export function DemoProvider({ children }: { children: ReactNode }) {
     email: "john@example.com",
   });
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional post-hydration theme init from localStorage; reading it during render would cause a hydration mismatch
     setThemeState(localStorage.getItem("newsflow-theme") || "light");
   }, []);
   useEffect(() => {
@@ -59,6 +59,9 @@ export function DemoProvider({ children }: { children: ReactNode }) {
     setThemeState(value);
     localStorage.setItem("newsflow-theme", value);
   };
+  // Sonner uses its own theme prop; mirror the app's light/dark/system choice.
+  const toastTheme =
+    theme === "dark" ? "dark" : theme === "system" ? "system" : "light";
   return (
     <Context.Provider
       value={{
@@ -77,11 +80,7 @@ export function DemoProvider({ children }: { children: ReactNode }) {
       }}
     >
       {children}
-      <Toaster
-        position="bottom-right"
-        richColors
-        theme={theme === "dark" ? "dark" : "light"}
-      />
+      <Toaster position="bottom-right" theme={toastTheme} />
     </Context.Provider>
   );
 }

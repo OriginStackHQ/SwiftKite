@@ -2,10 +2,10 @@ import { AuthPage } from "@/components/newsflow/auth";
 import { pageMetadata } from "@/lib/seo";
 
 export const metadata = pageMetadata(
-  "Welcome back",
-  "Sign in to the NewsFlow demo workspace.",
+  "Create your account",
+  "Start your next newsletter chapter with NewsFlow.",
 );
 
 export default function Page() {
-  return <AuthPage mode="login" />;
+  return <AuthPage mode="sign-up" />;
 }

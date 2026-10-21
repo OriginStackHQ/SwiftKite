@@ -1,68 +1,137 @@
 "use client";
+
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import { Check, Monitor, Moon, Sun, Lock } from "lucide-react";
+import { useForm } from "@tanstack/react-form";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Check, Loader2, Lock, Monitor, Moon, Sun } from "lucide-react";
 import { toast } from "sonner";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import {
+  FormFieldWrapper,
+  FormPasswordFieldWrapper,
+} from "@/components/ui/custom-form";
+import { useAuth } from "@/lib/auth";
+import {
+  providersRequest,
+  startGoogleLink,
+  unlinkProviderRequest,
+} from "@/lib/auth-api";
+import { passwordFormSchema, profileSchema } from "@/lib/auth-schemas";
+import errorHandler, { toastFormError } from "@/lib/errorHandler";
+import { authKeys } from "@/lib/query-keys";
 import { useDemo } from "./store";
-import { ConfirmDialog, PageHeading } from "./ui";
-import { PasswordStrength } from "./auth";
-// eslint-disable-next-line react-hooks/set-state-in-effect -- intentional post-hydration read of localStorage; reading it during render would cause a hydration mismatch
+import { PageHeading } from "./ui";
+
 export function SettingsPage() {
   const store = useDemo();
-  const [tab, setTab] = useState("Profile"),
-    [name, setName] = useState(store.profile.name),
-    [email, setEmail] = useState(store.profile.email),
-    [dirty, setDirty] = useState(false),
-    [notifications, setNotifications] = useState<Record<string, boolean>>({
-      "Campaign completed": true,
-      "High bounce rate alert": true,
-      "New complaint": true,
-      "Weekly summary": false,
-    }),
-    [savedNotifications, setSavedNotifications] = useState(notifications),
-    [remove, setRemove] = useState(false),
-    [current, setCurrent] = useState(""),
-    [password, setPassword] = useState(""),
-    [confirm, setConfirm] = useState("");
-  const router = useRouter();
+  const queryClient = useQueryClient();
+  const {
+    user,
+    updateProfile,
+    refreshUser,
+    isUpdatingProfile,
+  } = useAuth();
+  const [tab, setTab] = useState("Account");
+  const [dirty, setDirty] = useState(false);
+  const [notifications, setNotifications] = useState<Record<string, boolean>>({
+    "Campaign completed": true,
+    "High bounce rate alert": true,
+    "New complaint": true,
+    "Weekly summary": false,
+  });
+  const [savedNotifications, setSavedNotifications] = useState(notifications);
+
   useEffect(() => {
     try {
       const raw = localStorage.getItem("newsflow-notifications");
       if (raw) {
-        setNotifications(JSON.parse(raw));
-        setSavedNotifications(JSON.parse(raw));
+        const parsed = JSON.parse(raw) as Record<string, boolean>;
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- intentional post-hydration read of localStorage
+        setNotifications(parsed);
+        setSavedNotifications(parsed);
       }
     } catch {}
   }, []);
+
+  const providersQuery = useQuery({
+    queryKey: authKeys.providers,
+    queryFn: providersRequest,
+  });
+  const providers = providersQuery.data;
+
+  useEffect(() => {
+    if (providersQuery.isError) errorHandler(providersQuery.error);
+  }, [providersQuery.isError, providersQuery.error]);
+
+  const invalidateProviders = () =>
+    queryClient.invalidateQueries({ queryKey: authKeys.providers });
+
+  const linkGoogleMutation = useMutation({
+    mutationFn: startGoogleLink,
+    onError: (error) => errorHandler(error),
+  });
+
+  const unlinkGoogleMutation = useMutation({
+    mutationFn: () => unlinkProviderRequest("google"),
+    onSuccess: async () => {
+      toast.success("Google disconnected");
+      await Promise.all([invalidateProviders(), refreshUser()]);
+    },
+    onError: (error) => errorHandler(error),
+  });
+
+  const profileForm = useForm({
+    defaultValues: {
+      firstName: user?.firstName ?? "",
+      lastName: user?.lastName ?? "",
+    },
+    validators: { onSubmit: profileSchema },
+    onSubmitInvalid: ({ formApi }) => toastFormError(formApi),
+    onSubmit: async ({ value }) => {
+      try {
+        await updateProfile(value.firstName.trim(), value.lastName.trim());
+        toast.success("Profile updated");
+      } catch (error) {
+        errorHandler(error);
+      }
+    },
+  });
+
+  const displayName = user ? `${user.firstName} ${user.lastName}` : "";
+  const initials = user
+    ? `${user.firstName.charAt(0)}${user.lastName.charAt(0)}`.toUpperCase()
+    : "U";
+  const hasPassword = providers?.hasPassword ?? user?.hasPassword ?? false;
+  const googleLinked =
+    providers?.providers.some((item) => item.provider === "GOOGLE") ?? false;
+  const securityBusy =
+    linkGoogleMutation.isPending || unlinkGoogleMutation.isPending;
+
   const save = () => {
-    if (name.trim().length < 2 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      toast.error("Enter your name and a valid email address");
-      return;
-    }
-    store.setProfile({ name, email });
     localStorage.setItem(
       "newsflow-notifications",
       JSON.stringify(notifications),
     );
     setSavedNotifications(notifications);
     setDirty(false);
-    toast.success("Demo preferences saved");
+    toast.success("Preferences saved");
   };
+
   return (
     <>
       <PageHeading title="Settings" description="Your workspace, your way." />
       <div className="tab-row">
-        {["Profile", "Appearance", "Notifications", "Security"].map((t) => (
+        {["Account", "Appearance", "Notifications"].map((item) => (
           <Button
             variant="ghost"
-            className={tab === t ? "active" : ""}
-            key={t}
-            onClick={() => setTab(t)}
+            className={tab === item ? "active" : ""}
+            key={item}
+            onClick={() => setTab(item)}
           >
-            {t}
+            {item}
           </Button>
         ))}
       </div>
@@ -70,63 +139,150 @@ export function SettingsPage() {
         <aside>
           <h2 className="text-lg font-semibold">{tab}</h2>
           <p className="subtle-note mt-3">
-            {tab === "Profile"
-              ? "The person behind your publication."
-              : tab === "Appearance"
-                ? "A comfortable workspace, day or night."
-                : tab === "Notifications"
-                  ? "Choose what deserves your attention."
-                  : "Keep your workspace secure."}
+            {tab === "Appearance"
+              ? "A comfortable workspace, day or night."
+              : tab === "Notifications"
+                ? "Choose what deserves your attention."
+                : "Your profile, sign-in methods, and password."}
           </p>
         </aside>
         <section className="max-w-2xl space-y-6">
-          {tab === "Profile" && (
+          {tab === "Account" && (
             <>
               <div className="flex items-center gap-4">
-                <span className="avatar h-16 w-16 text-lg">
-                  {name
-                    .split(" ")
-                    .map((n) => n[0])
-                    .join("")}
-                </span>
+                <span className="avatar h-16 w-16 text-lg">{initials}</span>
                 <div>
-                  <p className="font-semibold">{name}</p>
-                  <p className="subtle-note">Workspace owner · Demo account</p>
+                  <p className="font-semibold">{displayName}</p>
+                  <p className="subtle-note">
+                    Workspace owner ·{" "}
+                    {user?.roles.join(", ") || "Creator"}
+                  </p>
                 </div>
               </div>
-              <div className="form-grid">
-                <div className="form-field">
-                  <label htmlFor="profile-name">Full name</label>
-                  <Input
-                    id="profile-name"
-                    value={name}
-                    onChange={(e) => {
-                      setName(e.target.value);
-                      setDirty(true);
-                    }}
-                  />
+
+              <form
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  profileForm.handleSubmit();
+                }}
+                className="space-y-5"
+              >
+                <div className="form-grid">
+                  <profileForm.Field name="firstName">
+                    {(field) => (
+                      <FormFieldWrapper
+                        label="First name"
+                        field={field}
+                        inputProps={{ autoComplete: "given-name" }}
+                      />
+                    )}
+                  </profileForm.Field>
+                  <profileForm.Field name="lastName">
+                    {(field) => (
+                      <FormFieldWrapper
+                        label="Last name"
+                        field={field}
+                        inputProps={{ autoComplete: "family-name" }}
+                      />
+                    )}
+                  </profileForm.Field>
                 </div>
                 <div className="form-field">
                   <label htmlFor="profile-email">Email address</label>
                   <Input
                     id="profile-email"
                     type="email"
-                    value={email}
-                    onChange={(e) => {
-                      setEmail(e.target.value);
-                      setDirty(true);
-                    }}
+                    value={user?.email ?? ""}
+                    readOnly
                   />
+                  <p className="text-[10px] text-muted-foreground">
+                    Email changes require verification and are not available
+                    yet.
+                  </p>
                 </div>
+                <Button type="submit" disabled={isUpdatingProfile}>
+                  {isUpdatingProfile ? <Loader2 className="animate-spin" /> : null}
+                  Save profile
+                </Button>
+              </form>
+
+              <div className="space-y-4 border-t pt-6">
+                <div>
+                  <p className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Lock size={14} />
+                    Sign-in methods
+                  </p>
+                  <p className="subtle-note mt-2">
+                    An account must keep at least one way to sign in.
+                  </p>
+                </div>
+
+                {providersQuery.isPending ? (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Loader2 className="animate-spin" size={14} />
+                    Loading sign-in methods…
+                  </div>
+                ) : providersQuery.isError ? (
+                  <div className="flex justify-end rounded-lg border p-4">
+                    <Button
+                      variant="outline"
+                      onClick={() => providersQuery.refetch()}
+                    >
+                      Retry
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between rounded-lg border p-4">
+                    <div>
+                      <p className="text-sm font-medium">Google</p>
+                      <p className="subtle-note">
+                        {googleLinked ? "Connected" : "Not connected"}
+                      </p>
+                    </div>
+                    {googleLinked ? (
+                      <Button
+                        variant="outline"
+                        onClick={() => unlinkGoogleMutation.mutate()}
+                        disabled={securityBusy}
+                      >
+                        {unlinkGoogleMutation.isPending ? (
+                          <Loader2 className="animate-spin" />
+                        ) : null}
+                        Unlink
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        onClick={() => linkGoogleMutation.mutate()}
+                        disabled={securityBusy}
+                      >
+                        {linkGoogleMutation.isPending ? (
+                          <Loader2 className="animate-spin" />
+                        ) : null}
+                        Link Google
+                      </Button>
+                    )}
+                  </div>
+                )}
               </div>
-              <div className="border-t pt-5">
-                <p className="text-xs font-medium">Account information</p>
+
+              <div className="border-t pt-6">
+                <h3 className="text-sm font-semibold">
+                  {hasPassword ? "Change password" : "Set a password"}
+                </h3>
                 <p className="subtle-note mt-2">
-                  Member since August 2026 · Interactive demo workspace
+                  {hasPassword
+                    ? "Changing your password signs out other devices."
+                    : "Add a password so you can sign in without Google."}
                 </p>
+                <PasswordForm
+                  key={hasPassword ? "change" : "set"}
+                  hasPassword={hasPassword}
+                />
               </div>
             </>
           )}
+
           {tab === "Appearance" && (
             <>
               <p className="subtle-note">
@@ -137,25 +293,25 @@ export function SettingsPage() {
                   { value: "light", icon: Sun, label: "Light" },
                   { value: "dark", icon: Moon, label: "Dark" },
                   { value: "system", icon: Monitor, label: "System" },
-                ].map((t) => (
+                ].map((item) => (
                   <button
-                    key={t.value}
-                    className={`overflow-hidden rounded-lg border text-left ${store.theme === t.value ? "border-primary ring-1 ring-primary" : ""}`}
-                    onClick={() => store.setTheme(t.value)}
+                    key={item.value}
+                    className={`overflow-hidden rounded-lg border text-left ${store.theme === item.value ? "border-primary ring-1 ring-primary" : ""}`}
+                    onClick={() => store.setTheme(item.value)}
                   >
                     <div className="flex h-24 items-center justify-center gap-2 bg-muted">
-                      <t.icon
+                      <item.icon
                         size={28}
                         className={
-                          store.theme === t.value
+                          store.theme === item.value
                             ? "text-primary"
                             : "text-muted-foreground"
                         }
                       />
                     </div>
                     <div className="flex justify-between bg-card p-3 text-xs">
-                      <span>{t.label}</span>
-                      {store.theme === t.value && (
+                      <span>{item.label}</span>
+                      {store.theme === item.value && (
                         <Check size={13} className="text-primary" />
                       )}
                     </div>
@@ -164,101 +320,35 @@ export function SettingsPage() {
               </div>
             </>
           )}
+
           {tab === "Notifications" &&
-            Object.entries(notifications).map(([n, v]) => (
-              <div key={n} className="flex justify-between border-b py-4">
+            Object.entries(notifications).map(([name, value]) => (
+              <div key={name} className="flex justify-between border-b py-4">
                 <div>
-                  <p className="text-sm font-medium">{n}</p>
+                  <p className="text-sm font-medium">{name}</p>
                   <p className="subtle-note mt-1">
-                    {n === "Weekly summary"
+                    {name === "Weekly summary"
                       ? "A digest of your newsletter’s performance."
-                      : n === "Campaign completed"
+                      : name === "Campaign completed"
                         ? "When every recipient has been accounted for."
-                        : n === "High bounce rate alert"
+                        : name === "High bounce rate alert"
                           ? "When your list may need a little care."
                           : "When a recipient reports a campaign as spam."}
                   </p>
                 </div>
                 <Switch
-                  aria-label={n}
-                  checked={v}
-                  onCheckedChange={(value) => {
-                    setNotifications((p) => ({ ...p, [n]: value }));
+                  aria-label={name}
+                  checked={value}
+                  onCheckedChange={(checked) => {
+                    setNotifications((previous) => ({
+                      ...previous,
+                      [name]: checked,
+                    }));
                     setDirty(true);
                   }}
                 />
               </div>
             ))}
-          {tab === "Security" && (
-            <>
-              <p className="flex items-center gap-2 text-xs text-muted-foreground">
-                <Lock size={14} />
-                Password changes are simulated in this demo.
-              </p>
-              <form
-                className="space-y-5"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  if (
-                    !current ||
-                    password.length < 8 ||
-                    !/[A-Z]/.test(password) ||
-                    !/[0-9]/.test(password) ||
-                    password !== confirm
-                  ) {
-                    toast.error(
-                      "Complete the current password and matching strong new passwords",
-                    );
-                    return;
-                  }
-                  toast.success(
-                    "Demo password changed — no real account modified",
-                  );
-                  setCurrent("");
-                  setPassword("");
-                  setConfirm("");
-                }}
-              >
-                {[
-                  ["Current password", current, setCurrent],
-                  ["New password", password, setPassword],
-                  ["Confirm new password", confirm, setConfirm],
-                ].map(([label, value, set]) => (
-                  <div className="form-field" key={label as string}>
-                    <label htmlFor={label as string}>{label as string}</label>
-                    <Input
-                      id={label as string}
-                      type="password"
-                      required
-                      value={value as string}
-                      onChange={(e) =>
-                        (set as (s: string) => void)(e.target.value)
-                      }
-                    />
-                    {label === "New password" && (
-                      <PasswordStrength password={password} />
-                    )}
-                  </div>
-                ))}
-                <Button type="submit">Change password (demo)</Button>
-              </form>
-              <div className="mt-8 border-t pt-6">
-                <h3 className="text-sm font-semibold text-destructive">
-                  Danger zone
-                </h3>
-                <p className="subtle-note my-3">
-                  Delete this demo account and return to the public website.
-                </p>
-                <Button
-                  variant="outline"
-                  className="text-destructive"
-                  onClick={() => setRemove(true)}
-                >
-                  Delete account
-                </Button>
-              </div>
-            </>
-          )}
         </section>
       </div>
       {dirty && (
@@ -268,8 +358,6 @@ export function SettingsPage() {
             <Button
               variant="outline"
               onClick={() => {
-                setName(store.profile.name);
-                setEmail(store.profile.email);
                 setNotifications(savedNotifications);
                 setDirty(false);
               }}
@@ -280,19 +368,94 @@ export function SettingsPage() {
           </div>
         </div>
       )}
-      <ConfirmDialog
-        open={remove}
-        onOpenChange={setRemove}
-        title="Delete demo account?"
-        description="This is a simulated action. No real account will be deleted."
-        action="Delete account (demo)"
-        confirmText="DELETE"
-        destructive
-        onConfirm={() => {
-          toast.info("Demo account deletion simulated");
-          router.push("/");
-        }}
-      />
     </>
+  );
+}
+
+function PasswordForm({ hasPassword }: { hasPassword: boolean }) {
+  const queryClient = useQueryClient();
+  const {
+    setPassword,
+    changePassword,
+    isSettingPassword,
+    isChangingPassword,
+  } = useAuth();
+
+  const form = useForm({
+    defaultValues: { currentPassword: "", password: "", confirm: "" },
+    validators: { onSubmit: passwordFormSchema(hasPassword) },
+    onSubmitInvalid: ({ formApi }) => toastFormError(formApi),
+    onSubmit: async ({ value }) => {
+      try {
+        if (hasPassword) {
+          await changePassword(
+            value.currentPassword,
+            value.password,
+            value.confirm,
+          );
+          toast.success("Password changed");
+        } else {
+          await setPassword(value.password, value.confirm);
+          toast.success(
+            "Password set. You can now sign in with email and password.",
+          );
+        }
+        form.reset();
+        await queryClient.invalidateQueries({
+          queryKey: authKeys.providers,
+        });
+      } catch (error) {
+        errorHandler(error);
+      }
+    },
+  });
+
+  const busy = hasPassword ? isChangingPassword : isSettingPassword;
+
+  return (
+    <form
+      onSubmit={(event) => {
+        event.preventDefault();
+        form.handleSubmit();
+      }}
+      className="mt-4 space-y-5"
+    >
+      {hasPassword && (
+        <form.Field name="currentPassword">
+          {(field) => (
+            <FormPasswordFieldWrapper
+              label="Current password"
+              field={field}
+              showStrength={false}
+              inputProps={{ autoComplete: "current-password" }}
+            />
+          )}
+        </form.Field>
+      )}
+      <form.Field name="password">
+        {(field) => (
+          <FormPasswordFieldWrapper
+            label={hasPassword ? "New password" : "Password"}
+            field={field}
+            inputProps={{ autoComplete: "new-password" }}
+          />
+        )}
+      </form.Field>
+      <form.Field name="confirm">
+        {(field) => (
+          <FormPasswordFieldWrapper
+            label={hasPassword ? "Confirm new password" : "Confirm password"}
+            field={field}
+            showStrength={false}
+            inputProps={{ autoComplete: "new-password" }}
+          />
+        )}
+      </form.Field>
+
+      <Button type="submit" disabled={busy}>
+        {busy ? <Loader2 className="animate-spin" /> : null}
+        {hasPassword ? "Change password" : "Set password"}
+      </Button>
+    </form>
   );
 }

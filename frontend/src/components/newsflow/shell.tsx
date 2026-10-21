@@ -46,6 +46,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Brand } from "./ui";
 import { useDemo } from "./store";
+import { useAuth } from "@/lib/auth";
 import { CreatePublicationDialog } from "./publication-dialog";
 const nav = [
   { to: "/dashboard", label: "Overview", icon: Home },
@@ -55,7 +56,6 @@ const nav = [
   { to: "/dashboard/analytics", label: "Analytics", icon: BarChart3 },
   { to: "/dashboard/settings", label: "Settings", icon: Settings },
 ] as const;
-// eslint-disable-next-line react-hooks/set-state-in-effect -- closes the mobile drawer after client-side navigation
 export function AppShell({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(false),
     [mobile, setMobile] = useState(false),
@@ -64,6 +64,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     [search, setSearch] = useState("");
   const path = usePathname();
   const router = useRouter();
+  const { user } = useAuth();
   const {
     publications,
     publicationId,
@@ -72,7 +73,6 @@ export function AppShell({ children }: { children: ReactNode }) {
     campaigns,
     theme,
     setTheme,
-    profile,
   } = useDemo();
   const sending = campaigns.some((c) => c.status === "Sending");
   useEffect(() => {
@@ -85,8 +85,13 @@ export function AppShell({ children }: { children: ReactNode }) {
     addEventListener("keydown", key);
     return () => removeEventListener("keydown", key);
   }, []);
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- closes the mobile drawer after client-side navigation
   useEffect(() => setMobile(false), [path]);
   const selected = publications.find((p) => p.id === publicationId);
+  const displayName = user ? `${user.firstName} ${user.lastName}` : "Account";
+  const initials = user
+    ? `${user.firstName.charAt(0)}${user.lastName.charAt(0)}`.toUpperCase()
+    : "U";
   const filteredPubs = publications.filter((p) =>
     p.name.toLowerCase().includes(search.toLowerCase()),
   );
@@ -201,13 +206,13 @@ export function AppShell({ children }: { children: ReactNode }) {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button className="flex w-full items-center gap-2 border-t pt-4 text-left">
-                <span className="avatar">JD</span>
+                <span className="avatar">{initials}</span>
                 <span className="user-label min-w-0">
                   <span className="block truncate text-xs font-semibold">
-                    {profile.name}
+                    {displayName}
                   </span>
                   <span className="block truncate text-[11px] text-muted-foreground">
-                    {profile.email}
+                    {user?.email}
                   </span>
                 </span>
               </button>
@@ -288,7 +293,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className="avatar ml-1" aria-label="Account menu">
-                  JD
+                  {initials}
                 </button>
               </DropdownMenuTrigger>
               <AccountMenu />
@@ -333,6 +338,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 }
 function AccountMenu() {
   const { setTheme } = useDemo();
+  const { signOut } = useAuth();
   const router = useRouter();
   return (
     <DropdownMenuContent align="end" className="w-52 bg-card">
@@ -356,9 +362,10 @@ function AccountMenu() {
       </DropdownMenuItem>
       <DropdownMenuSeparator />
       <DropdownMenuItem
-        onSelect={() => {
-          toast.info("Signed out of the demo workspace");
-          router.push("/login");
+        onSelect={async () => {
+          await signOut();
+          toast.success("Signed out");
+          router.push("/sign-in");
         }}
       >
         <LogOut />
