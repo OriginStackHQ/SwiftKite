@@ -1,35 +1,33 @@
 package com.swiftkite.services.implementation;
 
+import com.swiftkite.dto.auth.ChangePasswordRequest;
 import com.swiftkite.dto.auth.SignInRequest;
 import com.swiftkite.dto.auth.SignUpRequest;
+import com.swiftkite.dto.auth.AuthResponse;
 import com.swiftkite.dto.auth.SetPasswordRequest;
+import com.swiftkite.dto.auth.UpdateProfileRequest;
 import com.swiftkite.dto.user.MeResponse;
 import com.swiftkite.entity.ApplicationUser;
-import com.swiftkite.entity.RefreshToken;
 import com.swiftkite.entity.Role;
 import com.swiftkite.entity.UserIdentity;
 import com.swiftkite.enums.AuthProvider;
 import com.swiftkite.enums.RoleName;
 import com.swiftkite.exception.AppException;
-import com.swiftkite.exception.InvalidTokenException;
 import com.swiftkite.exception.NotFoundException;
 import com.swiftkite.exception.PasswordMismatchException;
 import com.swiftkite.exception.ResourceAlreadyExistsException;
 import com.swiftkite.repository.ApplicationUserRepository;
-import com.swiftkite.repository.RefreshTokenRepository;
 import com.swiftkite.repository.RoleRepository;
 import com.swiftkite.repository.UserIdentityRepository;
 import com.swiftkite.services.interfaces.IAuthService;
-import com.swiftkite.util.TokenHashes;
 import jakarta.validation.Valid;
-import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Optional;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -38,40 +36,32 @@ import org.springframework.validation.annotation.Validated;
 
 @Service
 @Validated
-@Transactional
 public class AuthService implements IAuthService {
-    /** Internal token bundle; controllers expose accessToken in the body and refreshToken as a cookie. */
-    public record TokenPair(String accessToken, String refreshToken) {}
 
     private final ApplicationUserRepository applicationUserRepository;
     private final RoleRepository roleRepository;
-    private final RefreshTokenRepository refreshTokenRepository;
     private final UserIdentityRepository userIdentityRepository;
-    private final JwtService jwtService;
+    private final SessionService sessionService;
     private final AuthenticationManager authenticationManager;
     private final PasswordEncoder passwordEncoder;
-
-    @Value("${app.auth.refresh-reuse-grace-seconds}")
-    private long reuseGraceSeconds;
 
     public AuthService(
             ApplicationUserRepository applicationUserRepository,
             RoleRepository roleRepository,
-            RefreshTokenRepository refreshTokenRepository,
             UserIdentityRepository userIdentityRepository,
-            JwtService jwtService,
+            SessionService sessionService,
             AuthenticationManager authenticationManager,
             PasswordEncoder passwordEncoder) {
         this.applicationUserRepository = applicationUserRepository;
         this.roleRepository = roleRepository;
-        this.refreshTokenRepository = refreshTokenRepository;
         this.userIdentityRepository = userIdentityRepository;
-        this.jwtService = jwtService;
+        this.sessionService = sessionService;
         this.authenticationManager = authenticationManager;
         this.passwordEncoder = passwordEncoder;
     }
 
     @Override
+    @Transactional
     public MeResponse signUp(@Valid SignUpRequest request) {
         if (!request.getPassword().equals(request.getConfirmPassword())) {
             throw new PasswordMismatchException("Passwords do not match.");
@@ -103,86 +93,39 @@ public class AuthService implements IAuthService {
     }
 
     @Override
-    public TokenPair signIn(@Valid SignInRequest request) {
+    public AuthResponse signIn(@Valid SignInRequest request) {
         String email = request.getEmail().toLowerCase();
-        ApplicationUser user = applicationUserRepository
-                .findByEmail(email)
-                .orElseThrow(() -> new BadCredentialsException("Invalid email or password."));
 
-        if (user.getPassword() == null) {
-            throw new AppException(
-                    "This email is linked to a Google account. Please sign in with Google instead.",
-                    HttpStatus.CONFLICT);
-        }
-
+        Authentication authentication;
         try {
-            authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(email, request.getPassword()));
+            // The provider loads the user once via CustomUserDetailsService; reuse
+            // that principal instead of re-querying by email.
+            authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(email, request.getPassword()));
         } catch (AuthenticationException e) {
+            // Failure path only: distinguish an OAuth-only account so the user
+            // gets a useful "sign in with Google" hint instead of a bare 401.
+            Optional<ApplicationUser> existing = applicationUserRepository.findByEmail(email);
+            if (existing.isPresent() && existing.get().getPassword() == null) {
+                throw new AppException(
+                        "This email is linked to a Google account. Please sign in with Google instead.",
+                        HttpStatus.CONFLICT);
+            }
             throw new BadCredentialsException("Invalid email or password.");
         }
 
-        return issueFreshSession(user);
+        ApplicationUser user = (ApplicationUser) authentication.getPrincipal();
+        return sessionService.start(user);
     }
 
     @Override
-    public TokenPair refreshToken(String rawRefreshToken) {
-        if (rawRefreshToken == null || rawRefreshToken.isBlank()) {
-            throw new InvalidTokenException("Refresh token is missing.");
-        }
-
-        String email;
-        try {
-            email = jwtService.extractEmail(rawRefreshToken);
-        } catch (Exception e) {
-            throw new InvalidTokenException("Invalid refresh token.");
-        }
-        ApplicationUser user = applicationUserRepository
-                .findByEmail(email)
-                .orElseThrow(() -> new NotFoundException("User not found with email: " + email));
-
-        RefreshToken session = refreshTokenRepository
-                .findByUser(user)
-                .orElseThrow(() -> new InvalidTokenException("Session not found. Please sign in again."));
-
-        String presentedHash = TokenHashes.sha256Hex(rawRefreshToken);
-        OffsetDateTime now = OffsetDateTime.now();
-
-        if (presentedHash.equals(session.getTokenHash())) {
-            return rotate(session, user, now);
-        }
-
-        // Concurrent retry of the immediately previous token inside the grace
-        // window: rotate again instead of logging the user out.
-        if (presentedHash.equals(session.getPreviousTokenHash())
-                && session.getPreviousTokenExpiresAt() != null
-                && now.isBefore(session.getPreviousTokenExpiresAt())) {
-            return rotate(session, user, now);
-        }
-
-        // True replay of a stale token: two parties hold the lineage. Revoke
-        // the whole family (this row) and force re-authentication.
-        refreshTokenRepository.delete(session);
-        throw new InvalidTokenException("Refresh token reuse detected. Please sign in again.");
+    public AuthResponse refreshToken(String rawRefreshToken) {
+        return sessionService.rotate(rawRefreshToken);
     }
 
     @Override
     public void signOut(String rawRefreshToken, String rawAccessToken) {
-        if (rawRefreshToken != null && !rawRefreshToken.isBlank()) {
-            refreshTokenRepository
-                    .findByTokenHash(TokenHashes.sha256Hex(rawRefreshToken))
-                    .ifPresent(refreshTokenRepository::delete);
-            return;
-        }
-        if (rawAccessToken != null && !rawAccessToken.isBlank()) {
-            try {
-                String email = jwtService.extractEmail(rawAccessToken);
-                applicationUserRepository.findByEmail(email).ifPresent(user -> refreshTokenRepository
-                        .findByUser(user)
-                        .ifPresent(refreshTokenRepository::delete));
-            } catch (Exception ignored) {
-                // Already signed out or malformed token â€” logout is idempotent.
-            }
-        }
+        sessionService.revoke(rawRefreshToken, rawAccessToken);
     }
 
     @Override
@@ -195,7 +138,8 @@ public class AuthService implements IAuthService {
     }
 
     @Override
-    public TokenPair setPassword(String email, @Valid SetPasswordRequest request) {
+    @Transactional
+    public AuthResponse setPassword(String email, @Valid SetPasswordRequest request) {
         ApplicationUser user = applicationUserRepository
                 .findByEmail(email)
                 .orElseThrow(() -> new NotFoundException("User not found with email: " + email));
@@ -219,44 +163,51 @@ public class AuthService implements IAuthService {
 
         // Credential change invalidates existing sessions: rotate if one
         // exists so the caller stays signed in, everyone else is signed out.
-        Optional<RefreshToken> session = refreshTokenRepository.findByUser(user);
-        if (session.isPresent()) {
-            return rotate(session.get(), user, OffsetDateTime.now());
+        return sessionService.rotateFor(user);
+    }
+
+    @Override
+    @Transactional
+    public AuthResponse changePassword(String email, @Valid ChangePasswordRequest request) {
+        ApplicationUser user = applicationUserRepository
+                .findByEmail(email)
+                .orElseThrow(() -> new NotFoundException("User not found with email: " + email));
+
+        if (user.getPassword() == null) {
+            throw new AppException("Set a password before changing it.", HttpStatus.CONFLICT);
         }
-        return new TokenPair(jwtService.generateAccessToken(user), null);
+        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+            throw new PasswordMismatchException("Passwords do not match.");
+        }
+        if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
+            throw new AppException("Current password is incorrect.", HttpStatus.BAD_REQUEST);
+        }
+        if (passwordEncoder.matches(request.getNewPassword(), user.getPassword())) {
+            throw new AppException(
+                    "New password must be different from the current password.", HttpStatus.BAD_REQUEST);
+        }
+
+        user.setPassword(passwordEncoder.encode(request.getNewPassword()));
+        applicationUserRepository.save(user);
+
+        // Keep the caller signed in on a fresh token; other sessions die.
+        return sessionService.rotateFor(user);
     }
 
-    /** Fresh login always starts a new lineage, orphaning any stolen tokens. */
-    private TokenPair issueFreshSession(ApplicationUser user) {
-        String accessToken = jwtService.generateAccessToken(user);
-        String refreshToken = jwtService.generateRefreshToken(user);
+    @Override
+    @Transactional
+    public MeResponse updateProfile(String email, @Valid UpdateProfileRequest request) {
+        ApplicationUser user = applicationUserRepository
+                .findByEmail(email)
+                .orElseThrow(() -> new NotFoundException("User not found with email: " + email));
 
-        Optional<RefreshToken> existing = refreshTokenRepository.findByUser(user);
-        RefreshToken session = existing.orElseGet(RefreshToken::new);
-        session.setUser(user);
-        session.setTokenHash(TokenHashes.sha256Hex(refreshToken));
-        session.setPreviousTokenHash(null);
-        session.setPreviousTokenExpiresAt(null);
-        refreshTokenRepository.save(session);
-
-        return new TokenPair(accessToken, refreshToken);
-    }
-
-    private TokenPair rotate(RefreshToken session, ApplicationUser user, OffsetDateTime now) {
-        String accessToken = jwtService.generateAccessToken(user);
-        String refreshToken = jwtService.generateRefreshToken(user);
-
-        session.setPreviousTokenHash(session.getTokenHash());
-        session.setPreviousTokenExpiresAt(now.plusSeconds(reuseGraceSeconds));
-        session.setTokenHash(TokenHashes.sha256Hex(refreshToken));
-        refreshTokenRepository.save(session);
-
-        return new TokenPair(accessToken, refreshToken);
+        user.setFirstName(request.getFirstName().trim());
+        user.setLastName(request.getLastName().trim());
+        return toMe(applicationUserRepository.save(user));
     }
 
     public MeResponse toMe(ApplicationUser user) {
-        List<String> roles =
-                user.getRoles().stream().map(role -> role.getName().name()).toList();
+        List<String> roles = user.getRoles().stream().map(role -> role.getName().name()).toList();
         List<String> providers = userIdentityRepository.findByUser(user).stream()
                 .map(identity -> identity.getProvider().name())
                 .toList();

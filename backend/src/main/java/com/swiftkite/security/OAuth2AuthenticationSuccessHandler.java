@@ -1,11 +1,9 @@
 package com.swiftkite.security;
 
 import com.swiftkite.dto.auth.OAuthUserInfo;
-import com.swiftkite.entity.ApplicationUser;
 import com.swiftkite.entity.OAuthLoginCode;
 import com.swiftkite.entity.UserIdentity;
 import com.swiftkite.enums.AuthProvider;
-import com.swiftkite.repository.ApplicationUserRepository;
 import com.swiftkite.repository.OAuthLoginCodeRepository;
 import com.swiftkite.repository.UserIdentityRepository;
 import com.swiftkite.util.TokenHashes;
@@ -13,7 +11,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.time.OffsetDateTime;
-import java.util.Map;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -33,7 +30,6 @@ import org.springframework.web.util.UriComponentsBuilder;
 @Component
 @Slf4j
 public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
-    private final ApplicationUserRepository userRepository;
     private final UserIdentityRepository identityRepository;
     private final OAuthLoginCodeRepository codeRepository;
 
@@ -47,10 +43,8 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
     private int codeExpiryMinutes;
 
     public OAuth2AuthenticationSuccessHandler(
-            ApplicationUserRepository userRepository,
             UserIdentityRepository identityRepository,
             OAuthLoginCodeRepository codeRepository) {
-        this.userRepository = userRepository;
         this.identityRepository = identityRepository;
         this.codeRepository = codeRepository;
     }
@@ -86,6 +80,9 @@ public class OAuth2AuthenticationSuccessHandler extends SimpleUrlAuthenticationS
         code.setFirstName(userInfo.getFirstName());
         code.setLastName(userInfo.getLastName());
         code.setExpiresAt(OffsetDateTime.now().plusMinutes(codeExpiryMinutes));
+        // Codes are single-use but abandoned logins leave rows behind; sweep on
+        // each issue so the table stays bounded.
+        codeRepository.deleteByExpiresAtBefore(OffsetDateTime.now());
         codeRepository.save(code);
 
         String redirectUrl = UriComponentsBuilder.fromUriString(frontendUrl + frontendCallbackPath)

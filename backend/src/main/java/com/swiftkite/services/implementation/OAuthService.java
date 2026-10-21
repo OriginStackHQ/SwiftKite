@@ -1,11 +1,11 @@
 package com.swiftkite.services.implementation;
 
+import com.swiftkite.dto.auth.AuthResponse;
 import com.swiftkite.dto.auth.LinkTokenResponse;
 import com.swiftkite.dto.auth.OAuthExchangeRequest;
 import com.swiftkite.dto.auth.ProvidersResponse;
 import com.swiftkite.entity.ApplicationUser;
 import com.swiftkite.entity.OAuthLoginCode;
-import com.swiftkite.entity.RefreshToken;
 import com.swiftkite.entity.Role;
 import com.swiftkite.entity.UserIdentity;
 import com.swiftkite.enums.AuthProvider;
@@ -15,10 +15,8 @@ import com.swiftkite.exception.InvalidTokenException;
 import com.swiftkite.exception.NotFoundException;
 import com.swiftkite.repository.ApplicationUserRepository;
 import com.swiftkite.repository.OAuthLoginCodeRepository;
-import com.swiftkite.repository.RefreshTokenRepository;
 import com.swiftkite.repository.RoleRepository;
 import com.swiftkite.repository.UserIdentityRepository;
-import com.swiftkite.services.implementation.AuthService.TokenPair;
 import com.swiftkite.services.interfaces.IOAuthService;
 import com.swiftkite.util.TokenHashes;
 import jakarta.validation.Valid;
@@ -36,28 +34,28 @@ import org.springframework.validation.annotation.Validated;
 public class OAuthService implements IOAuthService {
     private final ApplicationUserRepository applicationUserRepository;
     private final RoleRepository roleRepository;
-    private final RefreshTokenRepository refreshTokenRepository;
     private final UserIdentityRepository userIdentityRepository;
     private final OAuthLoginCodeRepository codeRepository;
     private final JwtService jwtService;
+    private final SessionService sessionService;
 
     public OAuthService(
             ApplicationUserRepository applicationUserRepository,
             RoleRepository roleRepository,
-            RefreshTokenRepository refreshTokenRepository,
             UserIdentityRepository userIdentityRepository,
             OAuthLoginCodeRepository codeRepository,
-            JwtService jwtService) {
+            JwtService jwtService,
+            SessionService sessionService) {
         this.applicationUserRepository = applicationUserRepository;
         this.roleRepository = roleRepository;
-        this.refreshTokenRepository = refreshTokenRepository;
         this.userIdentityRepository = userIdentityRepository;
         this.codeRepository = codeRepository;
         this.jwtService = jwtService;
+        this.sessionService = sessionService;
     }
 
     @Override
-    public TokenPair exchangeCode(@Valid OAuthExchangeRequest request) {
+    public AuthResponse exchangeCode(@Valid OAuthExchangeRequest request) {
         OAuthLoginCode code = codeRepository
                 .findByCodeHash(TokenHashes.sha256Hex(request.getCode()))
                 .orElseThrow(() -> new InvalidTokenException("Invalid or expired login code."));
@@ -76,7 +74,7 @@ public class OAuthService implements IOAuthService {
         } else {
             user = loginOrAutoCreate(code);
         }
-        return issueFreshSession(user);
+        return sessionService.start(user);
     }
 
     @Override
@@ -119,9 +117,9 @@ public class OAuthService implements IOAuthService {
     }
 
     /**
-     Binds a fresh Google identity to the account the link token was issued
-     for. Fails closed when the Google account already belongs to someone else.
-    */
+     * Binds a fresh Google identity to the account the link token was issued
+     * for. Fails closed when the Google account already belongs to someone else.
+     */
     private ApplicationUser linkToCurrentAccount(OAuthLoginCode code, String linkToken) {
         String email;
         try {
@@ -148,11 +146,13 @@ public class OAuthService implements IOAuthService {
         return user;
     }
 
-    /** Known email -> link Google to that account; otherwise auto-create (Google always supplies email). */
+    /**
+     * Known email -> link Google to that account; otherwise auto-create (Google
+     * always supplies email).
+     */
     private ApplicationUser loginOrAutoCreate(OAuthLoginCode code) {
         if (code.getEmail() != null) {
-            Optional<ApplicationUser> existing =
-                    applicationUserRepository.findByEmail(code.getEmail().toLowerCase());
+            Optional<ApplicationUser> existing = applicationUserRepository.findByEmail(code.getEmail().toLowerCase());
             if (existing.isPresent()) {
                 linkIdentity(existing.get(), code.getProvider(), code.getProviderId());
                 return existing.get();
@@ -179,19 +179,6 @@ public class OAuthService implements IOAuthService {
             identity.setProviderId(providerId);
             userIdentityRepository.save(identity);
         }
-    }
-
-    private TokenPair issueFreshSession(ApplicationUser user) {
-        String accessToken = jwtService.generateAccessToken(user);
-        String refreshToken = jwtService.generateRefreshToken(user);
-        RefreshToken session =
-                refreshTokenRepository.findByUser(user).orElseGet(RefreshToken::new);
-        session.setUser(user);
-        session.setTokenHash(TokenHashes.sha256Hex(refreshToken));
-        session.setPreviousTokenHash(null);
-        session.setPreviousTokenExpiresAt(null);
-        refreshTokenRepository.save(session);
-        return new TokenPair(accessToken, refreshToken);
     }
 
     private ApplicationUser requireUser(String email) {

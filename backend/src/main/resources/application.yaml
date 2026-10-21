@@ -2,16 +2,16 @@ spring:
   application:
     name: backend
   datasource:
-    url: ${DATABASE_URL:jdbc:postgresql://localhost:5433/swiftkite}
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/swiftkite}
     username: ${DATABASE_USERNAME:swiftkite}
-    password: ${DATABASE_PASSWORD:local_dev_password}
+    password: ${DATABASE_PASSWORD:swiftkite}
     hikari:
       maximum-pool-size: 10
   rabbitmq:
     host: ${RABBITMQ_HOST:localhost}
     port: ${RABBITMQ_PORT:5672}
-    username: ${RABBITMQ_USERNAME:swiftkite}
-    password: ${RABBITMQ_PASSWORD:local_dev_password}
+    username: ${RABBITMQ_USERNAME:rabbitmq}
+    password: ${RABBITMQ_PASSWORD:rabbitmq}
   jpa:
     hibernate:
       ddl-auto: validate
@@ -28,9 +28,22 @@ spring:
       client:
         registration:
           google:
-            client-id: ${GOOGLE_CLIENT_ID}
-            client-secret: ${GOOGLE_CLIENT_SECRET}
+            client-id: ${GOOGLE_CLIENT_ID:dummy-google-client-id.apps.googleusercontent.com}
+            client-secret: ${GOOGLE_CLIENT_SECRET:dummy-google-client-secret}
             scope: openid,profile,email
+
+# OpenAPI / Swagger UI. Disable in production with SPRINGDOC_ENABLED=false.
+springdoc:
+  api-docs:
+    enabled: ${SPRINGDOC_ENABLED:true}
+    path: /v3/api-docs
+  swagger-ui:
+    enabled: ${SPRINGDOC_ENABLED:true}
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+    display-request-duration: true
+  default-produces-media-type: application/json
 
 app:
   frontend-url: ${FRONTEND_URL:http://localhost:3000}
@@ -49,3 +62,4 @@ app:
       same-site: Lax
       max-age-seconds: ${COOKIE_MAX_AGE:2592000}
     refresh-reuse-grace-seconds: 30
+    reset-token-expiry-minutes: ${RESET_TOKEN_EXPIRY_MINUTES:30}

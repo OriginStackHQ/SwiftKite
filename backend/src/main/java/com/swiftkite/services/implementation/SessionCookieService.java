@@ -37,8 +37,4 @@ public class SessionCookieService {
                 .maxAge(Duration.ZERO)
                 .build();
     }
-
-    public String cookieName() {
-        return cookieProps.name();
-    }
 }

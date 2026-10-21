@@ -1,5 +1,6 @@
 package com.swiftkite.controller;
 
+import com.swiftkite.dto.auth.AuthResponse;
 import com.swiftkite.dto.auth.LinkTokenResponse;
 import com.swiftkite.dto.auth.OAuthExchangeRequest;
 import com.swiftkite.dto.auth.ProvidersResponse;
@@ -7,10 +8,10 @@ import com.swiftkite.dto.auth.SignInResponse;
 import com.swiftkite.entity.ApplicationUser;
 import com.swiftkite.enums.AuthProvider;
 import com.swiftkite.exception.AppException;
-import com.swiftkite.services.implementation.AuthService.TokenPair;
 import com.swiftkite.services.implementation.SessionCookieService;
 import com.swiftkite.services.interfaces.IOAuthService;
 import jakarta.validation.Valid;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
@@ -27,6 +28,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @Validated
+@Tag(name = "OAuth", description = "Google OAuth exchange and provider linking")
 @RequestMapping("/api/auth")
 public class OAuthController {
     private final IOAuthService oAuthService;
@@ -40,14 +42,16 @@ public class OAuthController {
     /** Exchanges the one-time login code from the OAuth callback for a session. */
     @PostMapping("/oauth/exchange")
     public ResponseEntity<SignInResponse> exchange(@Valid @RequestBody OAuthExchangeRequest request) {
-        TokenPair pair = oAuthService.exchangeCode(request);
-        ResponseCookie cookie = cookieService.issue(pair.refreshToken());
+        AuthResponse pair = oAuthService.exchangeCode(request);
+        ResponseCookie cookie = cookieService.issue(pair.getRefreshToken());
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, cookie.toString())
-                .body(new SignInResponse(pair.accessToken()));
+                .body(new SignInResponse(pair.getAccessToken()));
     }
 
-    /** Issues a short-lived token proving account ownership for the link handshake. */
+    /**
+     * Issues a short-lived token proving account ownership for the link handshake.
+     */
     @GetMapping("/providers/link-token")
     public ResponseEntity<LinkTokenResponse> linkToken(@AuthenticationPrincipal ApplicationUser user) {
         return ResponseEntity.ok(oAuthService.issueLinkToken(user.getEmail()));

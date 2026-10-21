@@ -45,7 +45,7 @@ public class ApplicationUser implements UserDetails {
     @Column(nullable = false, updatable = false, unique = true)
     private UUID id;
 
-    @Column(nullable = false, unique = true)
+    @Column(nullable = false, unique = true, columnDefinition = "citext")
     private String email;
 
     @Column(name = "password_hash")
@@ -58,10 +58,7 @@ public class ApplicationUser implements UserDetails {
     private String lastName;
 
     @ManyToMany(fetch = FetchType.EAGER)
-    @JoinTable(
-            name = "user_roles",
-            joinColumns = @JoinColumn(name = "user_id"),
-            inverseJoinColumns = @JoinColumn(name = "role_id"))
+    @JoinTable(name = "user_roles", joinColumns = @JoinColumn(name = "user_id"), inverseJoinColumns = @JoinColumn(name = "role_id"))
     private List<Role> roles = new ArrayList<>();
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)

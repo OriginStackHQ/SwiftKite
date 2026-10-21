@@ -1,7 +1,6 @@
 package com.swiftkite.services.implementation;
 
 import com.swiftkite.entity.ApplicationUser;
-import com.swiftkite.repository.RefreshTokenRepository;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
@@ -20,8 +19,12 @@ import org.springframework.validation.annotation.Validated;
 @Service
 @Validated
 public class JwtService {
-    private static final String PURPOSE_CLAIM = "purpose";
-    private static final String PURPOSE_LINK = "link";
+    /** Token kind, so a refresh or link token can never be used as an access token. */
+    private static final String TYPE_CLAIM = "typ";
+
+    public static final String TYPE_ACCESS = "access";
+    public static final String TYPE_REFRESH = "refresh";
+    public static final String TYPE_LINK = "link";
 
     @Value("${app.auth.jwt.secret-key}")
     private String secretKey;
@@ -35,18 +38,12 @@ public class JwtService {
     @Value("${app.oauth2.link-token-expiry-minutes}")
     private int linkTokenExpiryMinutes;
 
-    private final RefreshTokenRepository refreshTokenRepository;
-
-    public JwtService(RefreshTokenRepository refreshTokenRepository) {
-        this.refreshTokenRepository = refreshTokenRepository;
-    }
-
     public String generateAccessToken(ApplicationUser user) {
-        return generateToken(user, accessTokenExpire, Map.of());
+        return generateToken(user, accessTokenExpire, Map.of(TYPE_CLAIM, TYPE_ACCESS));
     }
 
     public String generateRefreshToken(ApplicationUser user) {
-        return generateToken(user, refreshTokenExpire, Map.of());
+        return generateToken(user, refreshTokenExpire, Map.of(TYPE_CLAIM, TYPE_REFRESH));
     }
 
     /**
@@ -54,7 +51,7 @@ public class JwtService {
      */
     public String generateLinkToken(ApplicationUser user) {
         long expiryMs = linkTokenExpiryMinutes * 60_000L;
-        return generateToken(user, expiryMs, Map.of(PURPOSE_CLAIM, PURPOSE_LINK));
+        return generateToken(user, expiryMs, Map.of(TYPE_CLAIM, TYPE_LINK));
     }
 
     private String generateToken(ApplicationUser user, long expireTimeMs, Map<String, Object> extra) {
@@ -79,25 +76,24 @@ public class JwtService {
         return email.equals(userDetails.getUsername()) && !isTokenExpired(token);
     }
 
-    public boolean isRefreshTokenValid(String token, UserDetails userDetails) {
-        final String email = extractEmail(token);
-        boolean isPresent = refreshTokenRepository
-                .findByTokenHash(com.swiftkite.util.TokenHashes.sha256Hex(token))
-                .isPresent();
-        return email.equals(userDetails.getUsername()) && !isTokenExpired(token) && isPresent;
+    public boolean isAccessToken(String token) {
+        return TYPE_ACCESS.equals(extractType(token));
+    }
+
+    public boolean isRefreshToken(String token) {
+        return TYPE_REFRESH.equals(extractType(token));
     }
 
     public boolean isLinkToken(String token) {
-        return PURPOSE_LINK.equals(extractClaim(token, claims -> claims.get(PURPOSE_CLAIM, String.class)));
+        return TYPE_LINK.equals(extractType(token));
+    }
+
+    private String extractType(String token) {
+        return extractClaim(token, claims -> claims.get(TYPE_CLAIM, String.class));
     }
 
     public String extractEmail(String token) {
         return extractClaim(token, Claims::getSubject);
-    }
-
-    @SuppressWarnings("unchecked")
-    public List<String> extractRoles(String token) {
-        return extractClaim(token, claims -> claims.get("roles", List.class));
     }
 
     public <T> T extractClaim(String token, Function<Claims, T> claimsResolver) {
