@@ -15,7 +15,6 @@ import com.swiftkite.entity.ApplicationUser;
 import com.swiftkite.services.implementation.SessionCookieService;
 import com.swiftkite.services.interfaces.IAuthService;
 import com.swiftkite.services.interfaces.IPasswordResetService;
-import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -34,7 +33,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @Validated
-@Tag(name = "Authentication", description = "Sign-up, sign-in, refresh, sign-out and account management")
 @RequestMapping("/api/auth")
 public class AuthController {
     private final IAuthService authService;

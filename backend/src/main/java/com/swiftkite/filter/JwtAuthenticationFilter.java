@@ -10,7 +10,6 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.net.URI;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ProblemDetail;
@@ -97,7 +96,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             throws IOException {
         ProblemDetail body = ProblemDetail.forStatusAndDetail(status, detail);
         body.setTitle(title);
-        body.setType(URI.create("https://swiftkite.dev/problems/" + status.value()));
         response.setStatus(status.value());
         response.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
         response.getWriter().write(objectMapper.writeValueAsString(body));

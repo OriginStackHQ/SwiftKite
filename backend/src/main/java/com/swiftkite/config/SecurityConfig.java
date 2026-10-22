@@ -6,7 +6,6 @@ import com.swiftkite.security.CustomOAuth2UserService;
 import com.swiftkite.security.OAuth2AuthenticationFailureHandler;
 import com.swiftkite.security.OAuth2AuthenticationSuccessHandler;
 import com.swiftkite.services.implementation.CustomUserDetailsService;
-import java.net.URI;
 import java.util.Arrays;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -109,7 +108,6 @@ public class SecurityConfig {
                         ? "You need to authenticate to access this resource."
                         : "You do not have permission to access this resource.");
         body.setTitle(title);
-        body.setType(URI.create("https://swiftkite.dev/problems/" + status.value()));
         response.setStatus(status.value());
         response.setContentType(MediaType.APPLICATION_PROBLEM_JSON_VALUE);
         response.getWriter().write(objectMapper.writeValueAsString(body));

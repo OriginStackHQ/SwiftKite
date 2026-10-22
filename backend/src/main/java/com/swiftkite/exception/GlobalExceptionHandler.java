@@ -1,6 +1,5 @@
 package com.swiftkite.exception;
 
-import java.net.URI;
 import java.util.List;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.support.DefaultMessageSourceResolvable;
@@ -22,12 +21,10 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 @RestControllerAdvice
 @Slf4j
 public class GlobalExceptionHandler {
-    private static final URI BASE_TYPE = URI.create("https://swiftkite.dev/problems/");
 
     private ResponseEntity<ProblemDetail> problem(HttpStatus status, String title, String detail) {
         ProblemDetail body = ProblemDetail.forStatusAndDetail(status, detail);
         body.setTitle(title);
-        body.setType(BASE_TYPE.resolve(status.value() + ""));
         return ResponseEntity.status(status).body(body);
     }
 
@@ -38,7 +35,6 @@ public class GlobalExceptionHandler {
                 .toList();
         ProblemDetail body = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Validation failed.");
         body.setTitle("Validation Error");
-        body.setType(BASE_TYPE.resolve("400"));
         body.setProperty("errors", errors);
         return ResponseEntity.badRequest().body(body);
     }

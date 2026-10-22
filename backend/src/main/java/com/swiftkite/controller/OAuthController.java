@@ -11,7 +11,6 @@ import com.swiftkite.exception.AppException;
 import com.swiftkite.services.implementation.SessionCookieService;
 import com.swiftkite.services.interfaces.IOAuthService;
 import jakarta.validation.Valid;
-import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
@@ -28,7 +27,6 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @Validated
-@Tag(name = "OAuth", description = "Google OAuth exchange and provider linking")
 @RequestMapping("/api/auth")
 public class OAuthController {
     private final IOAuthService oAuthService;

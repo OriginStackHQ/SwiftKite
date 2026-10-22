@@ -60,8 +60,11 @@ public class PasswordResetService implements IPasswordResetService {
         this.sessionService = sessionService;
     }
 
+    /**
+     * Deliberately not transactional: the token write commits on its own, then
+     * the provider call runs outside any database transaction.
+     */
     @Override
-    @Transactional
     public MessageResponse forgotPassword(ForgotPasswordRequest request) {
         String email = request.getEmail().trim().toLowerCase();
         OffsetDateTime now = OffsetDateTime.now();
@@ -82,8 +85,7 @@ public class PasswordResetService implements IPasswordResetService {
             token.setExpiresAt(now.plusMinutes(resetTokenExpiryMinutes));
             resetTokenRepository.save(token);
 
-            String resetUrl = frontendUrl + "/reset-password?token=" + rawToken;
-            notifier.send(user.getEmail(), resetUrl);
+            notifier.send(user.getEmail(), frontendUrl + "/reset-password?token=" + rawToken);
         }
 
         return new MessageResponse(GENERIC_MESSAGE);

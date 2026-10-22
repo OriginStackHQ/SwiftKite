@@ -1,4 +1,8 @@
 spring:
+  # Loads backend/.env when the app is launched from backend/ (optional so a
+  # missing file is not fatal). Real environment variables still win.
+  config:
+    import: optional:file:.env[.properties]
   application:
     name: backend
   datasource:
@@ -7,11 +11,6 @@ spring:
     password: ${DATABASE_PASSWORD:swiftkite}
     hikari:
       maximum-pool-size: 10
-  rabbitmq:
-    host: ${RABBITMQ_HOST:localhost}
-    port: ${RABBITMQ_PORT:5672}
-    username: ${RABBITMQ_USERNAME:rabbitmq}
-    password: ${RABBITMQ_PASSWORD:rabbitmq}
   jpa:
     hibernate:
       ddl-auto: validate
@@ -63,3 +62,25 @@ app:
       max-age-seconds: ${COOKIE_MAX_AGE:2592000}
     refresh-reuse-grace-seconds: 30
     reset-token-expiry-minutes: ${RESET_TOKEN_EXPIRY_MINUTES:30}
+
+# Mail. One sending address for the whole platform, verified once in the
+# provider. The publication name is the From display name; the address itself
+# is never sent to the browser. Account emails (password reset) use a separate
+# address so newsletter problems cannot affect them.
+swiftkite:
+  mail:
+    provider: ${MAIL_PROVIDER:resend}
+    from-email: ${MAIL_FROM_EMAIL}
+    api-key: ${RESEND_API_KEY}
+    base-url: ${RESEND_BASE_URL}
+    system:
+      from-name: ${MAIL_SYSTEM_FROM_NAME}
+      from-email: ${MAIL_SYSTEM_FROM_EMAIL}
+    fake:
+      # none | permanent | systemic | ambiguous (only used by the fake provider)
+      failure: ${MAIL_FAKE_FAILURE:none}
+  token:
+    # HMAC key for confirmation and unsubscribe tokens. Required, no default.
+    signing-key: ${TOKEN_SIGNING_KEY}
+  subscribe:
+    confirmation-ttl: ${CONFIRMATION_TTL:24h}
