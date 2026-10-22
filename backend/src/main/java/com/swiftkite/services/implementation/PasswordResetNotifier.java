@@ -4,7 +4,6 @@ import com.swiftkite.provider.EmailMessage;
 import com.swiftkite.provider.EmailProvider;
 import com.swiftkite.provider.ProviderException;
 import com.swiftkite.util.Html;
-import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -25,8 +24,8 @@ public class PasswordResetNotifier {
 
     public PasswordResetNotifier(
             EmailProvider emailProvider,
-            @Value("${swiftkite.mail.system.from-name}") String fromName,
-            @Value("${swiftkite.mail.system.from-email}") String fromEmail,
+            @Value("${app.mail.from-name}") String fromName,
+            @Value("${app.mail.from-email}") String fromEmail,
             @Value("${app.auth.reset-token-expiry-minutes}") long expiryMinutes) {
         this.emailProvider = emailProvider;
         this.fromName = fromName;
@@ -42,9 +41,7 @@ public class PasswordResetNotifier {
                 email,
                 "Reset your SwiftKite password",
                 buildHtml(resetUrl),
-                buildText(resetUrl),
-                Map.of(),
-                Map.of("kind", "password_reset"));
+                buildText(resetUrl));
 
         try {
             emailProvider.send(message);

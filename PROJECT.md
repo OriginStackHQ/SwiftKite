@@ -4,8 +4,6 @@ A small newsletter platform: a creator owns publications, each publication has
 subscribers, and a campaign is an email sent to one publication's subscribers.
 
 **Stack:** Spring Boot · PostgreSQL · Resend · Next.js
-**Not in v1:** message broker, outbox, rate limiting, open/click tracking,
-segments, imports, custom domains, payments.
 
 ---
 
@@ -83,7 +81,7 @@ DRAFT -> SCHEDULED -> SENDING -> COMPLETED   (reserved for the send slice)
 ```
 
 Only `DRAFT` can be edited, and a campaign can be deleted unless it is
-`SENDING`. Scheduling, duplication and preview are not built.
+`SENDING`.
 
 **Recipient** — defined now, used by the send slice:
 
@@ -101,6 +99,7 @@ Base path `/api`, RFC 7807 errors, pagination `?page=&size=` (max 100).
 Every creator query joins `publications` and filters `owner_id` in the same SQL.
 
 **Publications**
+
 ```
 GET    /api/publications
 POST   /api/publications
@@ -110,6 +109,7 @@ DELETE /api/publications/{id}         409 while a campaign is SENDING
 ```
 
 **Campaigns**
+
 ```
 GET    /api/publications/{publicationId}/campaigns
 POST   /api/publications/{publicationId}/campaigns
@@ -119,22 +119,20 @@ DELETE /api/campaigns/{id}            409 while SENDING
 ```
 
 **Subscribers**
+
 ```
-GET    /api/publications/{publicationId}/subscribers?status=&q=
+GET    /api/publications/{publicationId}/subscribers
 GET    /api/publications/{publicationId}/subscribers/{id}
 DELETE /api/publications/{publicationId}/subscribers/{id}
 ```
 
 **Public (no auth)**
+
 ```
 POST /api/public/subscribe        JSON or form; always the same generic 200
-GET  /api/public/confirm?token=   read-only, for the confirmation page
 POST /api/public/confirm          performs PENDING -> ACTIVE
-POST /api/public/unsubscribe?token=   one-click and page form
+POST /api/public/unsubscribe   one-click
 ```
-
-The confirmation link opens a page; only the button press (POST) confirms, so
-mail scanners cannot subscribe anybody.
 
 ---
 
@@ -151,7 +149,7 @@ When sending is built:
 - Send from a worker loop; the provider call happens outside any transaction.
 - Retry only when it is provable that nothing was sent. An ambiguous outcome is
   `FAILED / OUTCOME_UNKNOWN` and is never retried.
-- A provider rejection is `FAILED / PROVIDER_REJECTED`.
+- A provider rejection is `PROVIDER_REJECTED`.
 - One delivery row per subscriber; `UNIQUE (campaign_id, subscriber_id)` makes
   the snapshot idempotent.
 
@@ -160,13 +158,13 @@ When sending is built:
 ## 6. Config
 
 ```
-swiftkite.mail.provider=resend|fake
+swiftkite.mail.provider=resend
 swiftkite.mail.from-email=<one verified sending address>
 swiftkite.mail.api-key
 swiftkite.mail.base-url
 swiftkite.mail.system.from-name / from-email     (account mail: password reset)
 swiftkite.token.signing-key                       (HMAC for confirm/unsubscribe)
-app.frontend-url                                  (confirmation and unsubscribe pages)
+app.frontend-url                                  (cors)
 ```
 
 Secrets come from `backend/.env` only. Token signing key and sending address
@@ -180,34 +178,19 @@ are required; there are no baked-in defaults.
 - The footer is server-controlled: publication name plus a visible unsubscribe
   link. A creator cannot remove it.
 - Every email carries `List-Unsubscribe` and `List-Unsubscribe-Post:
-  List-Unsubscribe=One-Click`.
+List-Unsubscribe=One-Click`.
 - Confirmation tokens: HMAC-SHA256, 24 hours. Unsubscribe tokens: HMAC-SHA256,
   no expiry (old emails must keep working). Nothing is stored.
 - A confirmation is not re-sent to the same address within 5 minutes.
 
 ---
 
-## 8. Repo state
-
-- Auth is complete (`/api/auth/*`, JWT + refresh cookie, Google OAuth,
-  password reset). Reuse it; do not rewrite it.
-- Publications, campaigns and subscribers have working CRUD.
-- Public subscribe/confirm/unsubscribe are implemented and send the
-  confirmation email synchronously through `EmailProvider`.
-- Sending campaigns is not implemented.
-- The frontend still renders product screens from mock data.
-- No automated tests; verify with compile and manual calls.
-
----
-
-## 9. Known limitations
+## 8. Known limitations
 
 1. No exactly-once delivery: a crash after the provider accepts and before the
    row is saved leaves `OUTCOME_UNKNOWN`, which is never retried.
-2. `confirm` is a POST behind a button page; a user who opens the link without
-   pressing the button is not subscribed.
-3. Deleting a publication deletes its subscribers and campaigns.
-4. Soft-deleted subscribers keep their status so a bounce or complaint cannot
+2. Deleting a publication deletes its subscribers and campaigns.
+3. Soft-deleted subscribers keep their status so a bounce or complaint cannot
    be bypassed by signing up again.
-5. `reply_to` is not verified, so a creator can point replies at any address.
-6. One shared sending address: a creator's reputation affects everyone.
+4. `reply_to` is not verified, so a creator can point replies at any address.
+5. One shared sending address: a creator's reputation affects everyone.

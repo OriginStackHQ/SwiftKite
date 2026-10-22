@@ -1,24 +1,14 @@
 spring:
-  # Loads backend/.env when the app is launched from backend/ (optional so a
-  # missing file is not fatal). Real environment variables still win.
-  config:
-    import: optional:file:.env[.properties]
   application:
     name: backend
   datasource:
-    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/swiftkite}
-    username: ${DATABASE_USERNAME:swiftkite}
-    password: ${DATABASE_PASSWORD:swiftkite}
-    hikari:
-      maximum-pool-size: 10
+    url: ${DATABASE_URL}
+    username: ${DATABASE_USERNAME}
+    password: ${DATABASE_PASSWORD}
   jpa:
     hibernate:
       ddl-auto: validate
-    show-sql: false
     open-in-view: false
-    properties:
-      hibernate:
-        format_sql: true
   flyway:
     enabled: true
     locations: classpath:db/migration
@@ -27,60 +17,36 @@ spring:
       client:
         registration:
           google:
-            client-id: ${GOOGLE_CLIENT_ID:dummy-google-client-id.apps.googleusercontent.com}
-            client-secret: ${GOOGLE_CLIENT_SECRET:dummy-google-client-secret}
+            client-id: ${GOOGLE_CLIENT_ID}
+            client-secret: ${GOOGLE_CLIENT_SECRET}
             scope: openid,profile,email
 
-# OpenAPI / Swagger UI. Disable in production with SPRINGDOC_ENABLED=false.
 springdoc:
   api-docs:
-    enabled: ${SPRINGDOC_ENABLED:true}
-    path: /v3/api-docs
+    enabled: ${SPRINGDOC_ENABLED}
   swagger-ui:
-    enabled: ${SPRINGDOC_ENABLED:true}
-    path: /swagger-ui.html
-    operations-sorter: method
-    tags-sorter: alpha
-    display-request-duration: true
-  default-produces-media-type: application/json
+    enabled: ${SPRINGDOC_ENABLED}
 
 app:
-  frontend-url: ${FRONTEND_URL:http://localhost:3000}
+  frontend-url: ${FRONTEND_URL}
   oauth2:
     frontend-callback-path: /auth/callback
     code-expiry-minutes: 5
     link-token-expiry-minutes: 5
   auth:
     jwt:
-      secret-key: ${JWT_SECRET_KEY:}
-      access-token-expiration-ms: ${JWT_ACCESS_EXPIRATION_MS:900000}
-      refresh-token-expiration-ms: ${JWT_REFRESH_EXPIRATION_MS:2592000000}
+      secret-key: ${JWT_SECRET_KEY}
+      access-token-expiration-ms: ${JWT_ACCESS_EXPIRATION_MS}
+      refresh-token-expiration-ms: ${JWT_REFRESH_EXPIRATION_MS}
     cookie:
       name: sk_refresh
-      secure: ${COOKIE_SECURE:false}
+      secure: ${COOKIE_SECURE}
       same-site: Lax
-      max-age-seconds: ${COOKIE_MAX_AGE:2592000}
+      max-age-seconds: ${COOKIE_MAX_AGE}
     refresh-reuse-grace-seconds: 30
-    reset-token-expiry-minutes: ${RESET_TOKEN_EXPIRY_MINUTES:30}
-
-# Mail. One sending address for the whole platform, verified once in the
-# provider. The publication name is the From display name; the address itself
-# is never sent to the browser. Account emails (password reset) use a separate
-# address so newsletter problems cannot affect them.
-swiftkite:
+    reset-token-expiry-minutes: ${RESET_TOKEN_EXPIRY_MINUTES}
   mail:
-    provider: ${MAIL_PROVIDER:resend}
-    from-email: ${MAIL_FROM_EMAIL}
     api-key: ${RESEND_API_KEY}
     base-url: ${RESEND_BASE_URL}
-    system:
-      from-name: ${MAIL_SYSTEM_FROM_NAME}
-      from-email: ${MAIL_SYSTEM_FROM_EMAIL}
-    fake:
-      # none | permanent | systemic | ambiguous (only used by the fake provider)
-      failure: ${MAIL_FAKE_FAILURE:none}
-  token:
-    # HMAC key for confirmation and unsubscribe tokens. Required, no default.
-    signing-key: ${TOKEN_SIGNING_KEY}
-  subscribe:
-    confirmation-ttl: ${CONFIRMATION_TTL:24h}
+    from-name: ${MAIL_SYSTEM_FROM_NAME}
+    from-email: ${MAIL_SYSTEM_FROM_EMAIL}
