@@ -1,4 +1,4 @@
-import { PageSkeleton } from "@/components/newsflow/ui";
+import { PageSkeleton } from "@/components/swiftkite/ui";
 
 /**
  * Instant loading UI for every dashboard route. Shown during client-side

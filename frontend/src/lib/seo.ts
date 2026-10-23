@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 
-/** Builds the per-route metadata that the original TanStack `head()` helper produced. */
 export function pageMetadata(title: string, description: string): Metadata {
-  const fullTitle = `${title} · NewsFlow`;
+  const fullTitle = `${title} · SwiftKite`;
   return {
     title: fullTitle,
     description,

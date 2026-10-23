@@ -4,12 +4,12 @@ import "./globals.css";
 import { Providers } from "./providers";
 
 export const metadata: Metadata = {
-  title: "NewsFlow",
-  description: "A thoughtful home for your newsletter.",
-  authors: [{ name: "NewsFlow" }],
+  title: "SwiftKite",
+  description: "Reliable email campaigns. Send to everyone, once.",
+  authors: [{ name: "SwiftKite" }],
   openGraph: {
-    title: "NewsFlow",
-    description: "A thoughtful home for your newsletter.",
+    title: "SwiftKite",
+    description: "Reliable email campaigns. Send to everyone, once.",
     type: "website",
   },
   twitter: {

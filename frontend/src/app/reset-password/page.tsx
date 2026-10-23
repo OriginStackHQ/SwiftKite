@@ -6,7 +6,7 @@ import { ResetPasswordForm } from "./reset-password-form";
 
 export const metadata = pageMetadata(
   "Reset your password",
-  "Choose a new password for your NewsFlow account.",
+  "Choose a new password for your SwiftKite account.",
 );
 
 export default function Page() {

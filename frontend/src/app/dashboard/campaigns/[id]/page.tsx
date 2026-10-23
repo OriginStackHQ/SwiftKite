@@ -1,20 +1,12 @@
-import { CampaignDetail } from "@/components/newsflow/campaign-detail";
 import { pageMetadata } from "@/lib/seo";
 
+import { CampaignDetailClient } from "./campaign-detail-client";
+
 export const metadata = pageMetadata(
-  "Campaign delivery",
-  "Track recipient states, delivery progress and estimated engagement.",
+  "Campaign",
+  "Edit a draft or follow every delivery in a running campaign.",
 );
 
-export function generateStaticParams() {
-  return Array.from({ length: 12 }, (_, i) => ({ id: `cmp_${i + 1}` }));
-}
-
-export default async function Page({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
-  const { id } = await params;
-  return <CampaignDetail id={id} />;
+export default function Page() {
+  return <CampaignDetailClient />;
 }

@@ -1,9 +1,9 @@
-import { SettingsPage } from "@/components/newsflow/settings";
+import { SettingsPage } from "@/components/swiftkite/settings";
 import { pageMetadata } from "@/lib/seo";
 
 export const metadata = pageMetadata(
   "Settings",
-  "Personalize your NewsFlow account, appearance and notifications.",
+  "Manage your SwiftKite profile and security.",
 );
 
 export default function Page() {

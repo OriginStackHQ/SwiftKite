@@ -10,9 +10,20 @@ import axios, {
  * cookie, so `withCredentials` is enough. The response interceptor performs a
  * single-flight refresh on 401 and retries the original request once.
  */
-export const API_BASE_URL = (
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080"
-).replace(/\/+$/, "");
+/**
+ * Base URL of the backend. Read from NEXT_PUBLIC_API_URL (frontend/.env); there
+ * is no inline default so a missing value fails loudly instead of silently
+ * pointing at the wrong host.
+ */
+const configuredBaseUrl = process.env.NEXT_PUBLIC_API_URL;
+
+if (!configuredBaseUrl) {
+  throw new Error(
+    "NEXT_PUBLIC_API_URL is not set. Copy frontend/.env.example to frontend/.env.",
+  );
+}
+
+export const API_BASE_URL = configuredBaseUrl.replace(/\/+$/, "");
 
 let accessToken: string | null = null;
 

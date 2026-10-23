@@ -8,32 +8,35 @@ import { useMutation } from "@tanstack/react-query";
 import { ArrowRight, Loader2, Mail } from "lucide-react";
 import { toast } from "sonner";
 
-import { Button } from "@/components/ui/button";
 import { AppLoader } from "@/components/ui/app-loader";
-import { useAuth } from "@/lib/auth";
-import { forgotPasswordRequest, startGoogleOAuth } from "@/lib/auth-api";
-import { authSchema, type AuthMode } from "@/lib/auth-schemas";
-import errorHandler, { toastFormError } from "@/lib/errorHandler";
-import { Brand } from "./ui";
-import { GrowthChart } from "./charts";
+import { Button } from "@/components/ui/button";
 import {
   FormFieldWrapper,
   FormPasswordFieldWrapper,
 } from "@/components/ui/custom-form";
+import { useAuth } from "@/lib/auth";
+import { forgotPasswordRequest, startGoogleOAuth } from "@/lib/auth-api";
+import { authSchema, type AuthMode } from "@/lib/auth-schemas";
+import errorHandler, { toastFormError } from "@/lib/errorHandler";
+import { Brand, ProgressBar, StatusBadge, compactDeliverySegments } from "./ui";
+import type { DeliveryStatus } from "@/lib/campaign-types";
+
+const authPreviewCounts: Record<DeliveryStatus, number> = {
+  PENDING: 4,
+  ATTEMPTING: 1,
+  ACCEPTED: 18,
+  FAILED: 1,
+  DELIVERED: 76,
+  BOUNCED: 1,
+  COMPLAINED: 0,
+  CANCELLED: 0,
+};
 
 export function AuthPage({ mode }: { mode: AuthMode }) {
   const signup = mode === "sign-up";
   const forgot = mode === "forgot";
   const router = useRouter();
-  const {
-    signIn,
-    signUp,
-    isAuthenticated,
-    isLoading,
-    isSigningIn,
-    isSigningUp,
-  } = useAuth();
-
+  const { signIn, signUp, isAuthenticated, isLoading, isSigningIn, isSigningUp } = useAuth();
   const [forgotSent, setForgotSent] = useState(false);
   const [sentTo, setSentTo] = useState("");
 
@@ -42,9 +45,7 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
     onSuccess: (_data, email) => {
       setSentTo(email);
       setForgotSent(true);
-      toast.success(
-        "If an account exists for that email, a reset link has been sent.",
-      );
+      toast.success("If an account exists for that email, a reset link has been sent.");
     },
   });
 
@@ -85,17 +86,14 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
     },
   });
 
-  // Signed-in visitors should not sit on the sign-in/sign-up screens.
   useEffect(() => {
     if (!isLoading && isAuthenticated && !forgot) router.replace("/dashboard");
   }, [isLoading, isAuthenticated, forgot, router]);
 
-  // One-time read of the post-redirect query string (?reset / ?error).
   const handledQuery = useRef(false);
   useEffect(() => {
     if (handledQuery.current) return;
     handledQuery.current = true;
-
     const params = new URLSearchParams(window.location.search);
     if (params.get("reset")) {
       toast.success("Password reset. Sign in with your new password.", {
@@ -103,32 +101,19 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
       });
     }
     if (params.get("error") === "oauth_failed") {
-      toast.error("Google sign-in failed. Please try again.", {
-        id: "oauth-failed",
-      });
+      toast.error("Google sign-in failed. Please try again.", { id: "oauth-failed" });
     }
   }, []);
 
-  // Avoid flashing the form while the session is checked, and while an
-  // already-signed-in visitor is being redirected to the dashboard.
   if (!forgot && (isLoading || isAuthenticated)) {
     return (
       <AppLoader
-        label={
-          isAuthenticated
-            ? "Taking you to your workspace…"
-            : "Checking your session…"
-        }
+        label={isAuthenticated ? "Taking you to your workspace…" : "Checking your session…"}
       />
     );
   }
 
-  const busy = forgot
-    ? forgotMutation.isPending
-    : signup
-      ? isSigningUp
-      : isSigningIn;
-
+  const busy = forgot ? forgotMutation.isPending : signup ? isSigningUp : isSigningIn;
   const resetForgot = () => {
     setForgotSent(false);
     setSentTo("");
@@ -143,25 +128,17 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
         </Link>
         <div className="auth-form">
           <div className="eyebrow mb-4">
-            {signup
-              ? "Your next chapter starts here"
-              : forgot
-                ? "Let’s get you back in"
-                : "Good to see you again"}
+            {signup ? "Start sending with confidence" : forgot ? "Let’s get you back in" : "Welcome back"}
           </div>
           <h1 className="text-3xl font-semibold">
-            {signup
-              ? "Create your account"
-              : forgot
-                ? "Forgot your password?"
-                : "Welcome back"}
+            {signup ? "Create your account" : forgot ? "Forgot your password?" : "Welcome back"}
           </h1>
           <p className="mb-8 mt-3 text-sm text-muted-foreground">
             {signup
-              ? "A thoughtful home for your newsletter."
+              ? "Create campaigns, add recipients, and track every email."
               : forgot
                 ? "Enter your email and we’ll send you a reset link."
-                : "Sign in to continue to your workspace."}
+                : "Sign in to manage your campaigns."}
           </p>
 
           {forgot && forgotSent ? (
@@ -171,15 +148,9 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
               </span>
               <h2 className="text-xl font-semibold">Check your email</h2>
               <p className="mt-2 text-sm text-muted-foreground">
-                If an account exists for {sentTo}, we sent a link to reset your
-                password.
+                If an account exists for {sentTo}, we sent a link to reset your password.
               </p>
-              <Button
-                type="button"
-                variant="ghost"
-                className="mt-4 w-full"
-                onClick={resetForgot}
-              >
+              <Button type="button" variant="ghost" className="mt-4 w-full" onClick={resetForgot}>
                 Use a different email
               </Button>
             </div>
@@ -236,9 +207,7 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
                       field={field}
                       showStrength={signup}
                       inputProps={{
-                        autoComplete: signup
-                          ? "new-password"
-                          : "current-password",
+                        autoComplete: signup ? "new-password" : "current-password",
                       }}
                     />
                   )}
@@ -268,11 +237,7 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
 
               <Button type="submit" className="w-full" disabled={busy}>
                 {busy ? <Loader2 className="animate-spin" /> : null}
-                {forgot
-                  ? "Send reset link"
-                  : signup
-                    ? "Create account"
-                    : "Sign in"}
+                {forgot ? "Send reset link" : signup ? "Create account" : "Sign in"}
                 {!busy && !forgot && <ArrowRight />}
               </Button>
 
@@ -312,7 +277,7 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
               </Link>
             ) : (
               <>
-                New to NewsFlow?{" "}
+                New to SwiftKite?{" "}
                 <Link href="/sign-up" className="text-primary">
                   Create an account
                 </Link>
@@ -320,26 +285,50 @@ export function AuthPage({ mode }: { mode: AuthMode }) {
             )}
           </div>
         </div>
-        <p className="text-[10px] text-muted-foreground">© 2026 NewsFlow</p>
+        <p className="text-[10px] text-muted-foreground">© 2026 SwiftKite</p>
       </div>
       <aside className="auth-visual">
-        <div className="eyebrow mb-5">For people with something to say</div>
+        <div className="eyebrow mb-5">Reliable email campaigns</div>
         <h2>
-          Your voice.
+          Send to everyone.
           <br />
-          Your audience.
-          <br />
-          <span className="text-primary">Your next chapter.</span>
+          <span className="text-primary">Once.</span>
         </h2>
         <p className="mt-5 max-w-sm leading-7 text-muted-foreground">
-          A little less complexity. A little more connection.
+          Every recipient gets an immutable delivery record. Pause, resume or stop without losing
+          control.
         </p>
-        <div className="surface max-w-lg p-6">
-          <p className="mb-2 font-semibold">A growing conversation</p>
-          <p className="subtle-note">Subscriber growth · demo data</p>
-          <GrowthChart mini />
-        </div>
+        <AuthPreview />
       </aside>
+    </div>
+  );
+}
+
+function AuthPreview() {
+  const total = Object.values(authPreviewCounts).reduce(
+    (sum, value) => sum + value,
+    0,
+  );
+  return (
+    <div className="surface max-w-lg p-6">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="font-semibold">Spring launch</p>
+          <p className="subtle-note">Campaign progress · demo data</p>
+        </div>
+        <StatusBadge status="SENDING" info={false} />
+      </div>
+      <div className="mt-5">
+        <ProgressBar
+          segments={compactDeliverySegments(authPreviewCounts)}
+          total={total}
+        />
+      </div>
+      <div className="mt-4 flex justify-between text-[10px] text-muted-foreground">
+        <span>{authPreviewCounts.DELIVERED} delivered</span>
+        <span>{authPreviewCounts.PENDING} pending</span>
+        <span>{authPreviewCounts.FAILED} failed</span>
+      </div>
     </div>
   );
 }

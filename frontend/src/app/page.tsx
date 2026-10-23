@@ -1,9 +1,9 @@
-import { Landing } from "@/components/newsflow/landing";
+import { Landing } from "@/components/swiftkite/landing";
 import { pageMetadata } from "@/lib/seo";
 
 export const metadata = pageMetadata(
-  "NewsFlow — Your newsletter deserves better",
-  "A thoughtful workspace to publish newsletters, grow your audience, and understand what resonates.",
+  "Reliable email campaigns",
+  "Create a campaign, add recipients with their own data, and send. SwiftKite tracks every email and never sends twice.",
 );
 
 export default function Page() {

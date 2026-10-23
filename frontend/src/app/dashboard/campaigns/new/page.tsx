@@ -6,7 +6,7 @@ import { NewCampaign } from "./new-campaign";
 
 export const metadata = pageMetadata(
   "Create campaign",
-  "Compose and preview your next newsletter issue.",
+  "Start a new email campaign draft.",
 );
 
 export default function Page() {

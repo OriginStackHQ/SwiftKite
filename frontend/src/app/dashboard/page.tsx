@@ -1,9 +1,9 @@
-import { Overview } from "@/components/newsflow/overview";
+import { Overview } from "@/components/swiftkite/overview";
 import { pageMetadata } from "@/lib/seo";
 
 export const metadata = pageMetadata(
   "Overview",
-  "Your newsletter subscribers, campaigns, delivery and growth at a glance.",
+  "Campaign delivery, failures and attention items at a glance.",
 );
 
 export default function Page() {

@@ -9,7 +9,7 @@ import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
 import { FormPasswordFieldWrapper } from "@/components/ui/custom-form";
-import { Brand } from "@/components/newsflow/ui";
+import { Brand } from "@/components/swiftkite/ui";
 import { useAuth } from "@/lib/auth";
 import { resetPasswordRequest } from "@/lib/auth-api";
 import { resetPasswordSchema } from "@/lib/auth-schemas";
@@ -57,7 +57,7 @@ export function ResetPasswordForm() {
   return (
     <div className="grid min-h-screen place-items-center bg-background p-6">
       <div className="w-full max-w-md">
-        <Link href="/" aria-label="NewsFlow home">
+        <Link href="/" aria-label="SwiftKite home">
           <Brand />
         </Link>
         <div className="surface mt-8 p-8">
