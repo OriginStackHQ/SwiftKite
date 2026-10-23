@@ -1,0 +1,17 @@
+# Build output is produced inside the image.
+target/
+
+# Never bake environment files (or secrets) into the image.
+.env
+.env.*
+*.env
+
+# Local tooling noise.
+.git
+.gitignore
+.idea
+.vscode
+*.iml
+HELP.md
+Dockerfile
+.dockerignore

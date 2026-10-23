@@ -1,0 +1,21 @@
+# Installed / generated inside the image.
+node_modules
+.next
+out
+build
+
+# Never bake environment files (or secrets) into the image.
+.env
+.env.*
+*.env
+
+# Local tooling noise.
+.git
+.gitignore
+.vercel
+*.log
+.vscode
+.idea
+*.tsbuildinfo
+Dockerfile
+.dockerignore

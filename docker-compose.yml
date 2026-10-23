@@ -1,18 +1,24 @@
+name: swiftkite
+
+# Every ${VAR} below is resolved from the repository-root .env file (see
+# .env.example). No variable has an inline default on purpose: a missing value
+# must fail loudly instead of silently falling back to a placeholder.
+
 services:
   postgres:
     image: postgres:17
     container_name: swiftkite-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: swiftkite
-      POSTGRES_USER: swiftkite
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     ports:
-      - "127.0.0.1:5433:5432"
+      - "127.0.0.1:${POSTGRES_PORT}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U swiftkite -d swiftkite"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -23,11 +29,11 @@ services:
     container_name: swiftkite-rabbitmq
     restart: unless-stopped
     environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME:-rabbitmq}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-rabbitmq}
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
     ports:
-      - "127.0.0.1:5672:5672"
-      - "127.0.0.1:15672:15672"
+      - "127.0.0.1:${RABBITMQ_PORT}:5672"
+      - "127.0.0.1:${RABBITMQ_MANAGEMENT_PORT}:15672"
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     healthcheck:
@@ -36,6 +42,85 @@ services:
       timeout: 5s
       retries: 10
       start_period: 15s
+
+  backend:
+    build:
+      context: ./backend
+    image: swiftkite-backend:local
+    container_name: swiftkite-backend
+    restart: unless-stopped
+    environment:
+      # database
+      DATABASE_URL: ${DATABASE_URL}
+      DATABASE_USERNAME: ${DATABASE_USERNAME}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD}
+      # auth / JWT
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      JWT_ACCESS_EXPIRATION_MS: ${JWT_ACCESS_EXPIRATION_MS}
+      JWT_REFRESH_EXPIRATION_MS: ${JWT_REFRESH_EXPIRATION_MS}
+      # Google OAuth
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      # web
+      FRONTEND_URL: ${FRONTEND_URL}
+      COOKIE_SECURE: ${COOKIE_SECURE}
+      COOKIE_MAX_AGE: ${COOKIE_MAX_AGE}
+      SPRINGDOC_ENABLED: ${SPRINGDOC_ENABLED}
+      RESET_TOKEN_EXPIRY_MINUTES: ${RESET_TOKEN_EXPIRY_MINUTES}
+      # RabbitMQ (service name inside the compose network)
+      RABBITMQ_HOST: ${RABBITMQ_HOST}
+      RABBITMQ_PORT: ${RABBITMQ_PORT}
+      RABBITMQ_USERNAME: ${RABBITMQ_USERNAME}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+      # outbox
+      OUTBOX_RELAY_DELAY_MS: ${OUTBOX_RELAY_DELAY_MS}
+      OUTBOX_INITIAL_DELAY_MS: ${OUTBOX_INITIAL_DELAY_MS}
+      OUTBOX_BATCH_SIZE: ${OUTBOX_BATCH_SIZE}
+      # workers
+      WORKER_CONCURRENCY: ${WORKER_CONCURRENCY}
+      WORKER_PREFETCH: ${WORKER_PREFETCH}
+      # reconciler
+      RECONCILER_DELAY_MS: ${RECONCILER_DELAY_MS}
+      RECONCILER_INITIAL_DELAY_MS: ${RECONCILER_INITIAL_DELAY_MS}
+      RECONCILER_STUCK_AFTER_MINUTES: ${RECONCILER_STUCK_AFTER_MINUTES}
+      # scheduler
+      SCHEDULER_POOL_SIZE: ${SCHEDULER_POOL_SIZE}
+      # mail (Resend)
+      RESEND_API_KEY: ${RESEND_API_KEY}
+      RESEND_BASE_URL: ${RESEND_BASE_URL}
+      MAIL_SYSTEM_FROM_NAME: ${MAIL_SYSTEM_FROM_NAME}
+      MAIL_SYSTEM_FROM_EMAIL: ${MAIL_SYSTEM_FROM_EMAIL}
+      # webhook (Resend)
+      RESEND_WEBHOOK_SECRET: ${RESEND_WEBHOOK_SECRET}
+      RESEND_WEBHOOK_TOLERANCE_SECONDS: ${RESEND_WEBHOOK_TOLERANCE_SECONDS}
+    ports:
+      - "127.0.0.1:${BACKEND_PORT}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://localhost:8080/actuator/health | grep -q UP"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        # NEXT_PUBLIC_* is inlined at build time, so it is passed as a build arg.
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+    image: swiftkite-frontend:local
+    container_name: swiftkite-frontend
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${FRONTEND_PORT}:3000"
+    depends_on:
+      backend:
+        condition: service_healthy
 
 volumes:
   postgres_data:
