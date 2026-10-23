@@ -1,3 +1,10 @@
 package com.swiftkite.dto.auth;
 
-public record MessageResponse(String message) {}
+import lombok.AllArgsConstructor;
+import lombok.Data;
+
+@Data
+@AllArgsConstructor
+public class MessageResponse {
+    private String message;
+}

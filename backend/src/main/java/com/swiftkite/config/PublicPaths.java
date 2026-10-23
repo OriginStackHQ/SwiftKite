@@ -15,6 +15,7 @@ public class PublicPaths {
             "/api/auth/forgot-password",
             "/api/auth/reset-password",
             "/api/auth/oauth/exchange",
+            "/api/webhooks/email",
             "/oauth2/authorization/**",
             "/login/oauth2/code/**",
             "/actuator/health",

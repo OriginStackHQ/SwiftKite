@@ -2,7 +2,7 @@ package com.swiftkite.services.implementation;
 
 import com.swiftkite.provider.EmailMessage;
 import com.swiftkite.provider.EmailProvider;
-import com.swiftkite.provider.ProviderException;
+import com.swiftkite.provider.SendResult;
 import com.swiftkite.util.Html;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -41,16 +41,32 @@ public class PasswordResetNotifier {
                 email,
                 "Reset your SwiftKite password",
                 buildHtml(resetUrl),
-                buildText(resetUrl));
+                buildText(resetUrl),
+                null);
 
         try {
-            emailProvider.send(message);
-            log.info("Password reset email accepted for {}", email);
-        } catch (ProviderException ex) {
-            // Keep the API response generic; the token stays valid until expiry
-            // so the user can retry the form.
+            SendResult result = emailProvider.send(message);
+            if (result instanceof SendResult.Accepted) {
+                log.info("Password reset email accepted for {}", email);
+            } else {
+                // Keep the API response generic; the token stays valid until
+                // expiry so the user can retry the form.
+                log.error("Password reset email not accepted for {}: {}", email, describe(result));
+            }
+        } catch (RuntimeException ex) {
+            // A provider bug must not break the generic forgot-password reply.
             log.error("Password reset email failed for {}: {}", email, ex.getMessage());
         }
+    }
+
+    private static String describe(SendResult result) {
+        return switch (result) {
+            case SendResult.Accepted _ -> "accepted";
+            case SendResult.Rejected rejected -> "rejected: " + rejected.detail();
+            case SendResult.AuthError _ -> "provider authentication error";
+            case SendResult.RateLimited _ -> "rate limited";
+            case SendResult.Unknown unknown -> "unknown: " + unknown.detail();
+        };
     }
 
     private String buildHtml(String resetUrl) {

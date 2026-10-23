@@ -6,12 +6,17 @@ import org.springframework.context.support.DefaultMessageSourceResolvable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MultipartException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /**
@@ -39,6 +44,27 @@ public class GlobalExceptionHandler {
         return ResponseEntity.badRequest().body(body);
     }
 
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ProblemDetail> handleTypeMismatch(MethodArgumentTypeMismatchException ex) {
+        return problem(
+                HttpStatus.BAD_REQUEST,
+                "Invalid Request Parameter",
+                "Invalid value for '" + ex.getName() + "'.");
+    }
+
+    @ExceptionHandler({
+        MissingServletRequestParameterException.class,
+        MissingServletRequestPartException.class,
+        HttpMessageNotReadableException.class,
+        MultipartException.class
+    })
+    public ResponseEntity<ProblemDetail> handleMalformedRequest(Exception ex) {
+        return problem(
+                HttpStatus.BAD_REQUEST,
+                "Bad Request",
+                "Malformed or missing request body.");
+    }
+
     @ExceptionHandler(NotFoundException.class)
     public ResponseEntity<ProblemDetail> handleNotFound(NotFoundException ex) {
         return problem(HttpStatus.NOT_FOUND, "Not Found", ex.getMessage());
@@ -57,6 +83,16 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ResourceAlreadyExistsException.class)
     public ResponseEntity<ProblemDetail> handleConflict(ResourceAlreadyExistsException ex) {
         return problem(HttpStatus.CONFLICT, "Resource Already Exists", ex.getMessage());
+    }
+
+    @ExceptionHandler(MissingPlaceholderException.class)
+    public ResponseEntity<ProblemDetail> handleMissingPlaceholders(MissingPlaceholderException ex) {
+        ProblemDetail body = ProblemDetail.forStatusAndDetail(
+                HttpStatus.UNPROCESSABLE_CONTENT,
+                "Some recipients are missing values for the placeholders used by this campaign.");
+        body.setTitle("Missing Placeholder Values");
+        body.setProperty("recipients", ex.getMissing());
+        return ResponseEntity.unprocessableContent().body(body);
     }
 
     @ExceptionHandler(BadCredentialsException.class)

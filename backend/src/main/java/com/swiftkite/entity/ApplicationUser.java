@@ -1,6 +1,5 @@
 package com.swiftkite.entity;
 
-import com.swiftkite.enums.RoleName;
 import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -93,11 +92,4 @@ public class ApplicationUser implements UserDetails {
         return email;
     }
 
-    public String getFullName() {
-        return firstName + " " + lastName;
-    }
-
-    public boolean hasRole(RoleName roleName) {
-        return roles.stream().anyMatch(role -> role.getName() == roleName);
-    }
 }

@@ -1,4 +1,7 @@
 spring:
+  config:
+    import:
+      - optional:file:backend/.env[.properties]
   application:
     name: backend
   datasource:
@@ -20,6 +23,20 @@ spring:
             client-id: ${GOOGLE_CLIENT_ID}
             client-secret: ${GOOGLE_CLIENT_SECRET}
             scope: openid,profile,email
+  rabbitmq:
+    host: ${RABBITMQ_HOST}
+    port: ${RABBITMQ_PORT}
+    username: ${RABBITMQ_USERNAME}
+    password: ${RABBITMQ_PASSWORD}
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    listener:
+      simple:
+        prefetch: ${WORKER_PREFETCH}
+  task:
+    scheduling:
+      pool:
+        size: ${SCHEDULER_POOL_SIZE}
 
 springdoc:
   api-docs:
@@ -50,3 +67,17 @@ app:
     base-url: ${RESEND_BASE_URL}
     from-name: ${MAIL_SYSTEM_FROM_NAME}
     from-email: ${MAIL_SYSTEM_FROM_EMAIL}
+  webhook:
+    resend:
+      secret: ${RESEND_WEBHOOK_SECRET}
+      tolerance-seconds: ${RESEND_WEBHOOK_TOLERANCE_SECONDS}
+  outbox:
+    relay-delay-ms: ${OUTBOX_RELAY_DELAY_MS}
+    initial-delay-ms: ${OUTBOX_INITIAL_DELAY_MS}
+    batch-size: ${OUTBOX_BATCH_SIZE}
+  worker:
+    concurrency: ${WORKER_CONCURRENCY}
+  reconciler:
+    delay-ms: ${RECONCILER_DELAY_MS}
+    initial-delay-ms: ${RECONCILER_INITIAL_DELAY_MS}
+    stuck-after-minutes: ${RECONCILER_STUCK_AFTER_MINUTES}
