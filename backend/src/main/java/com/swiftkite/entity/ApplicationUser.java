@@ -30,7 +30,7 @@ import org.springframework.security.core.userdetails.UserDetails;
 /**
  * Creator account. Identity semantics are intentional: no equals/hashCode so
  * the persistence-context identity is used (Lombok {@code @Data} would be
- * wrong here â€” it generates equals/hashCode over all fields and toString
+ * wrong here — it generates equals/hashCode over all fields and toString
  * that lazy-loads relations).
  */
 @Entity

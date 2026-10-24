@@ -25,7 +25,7 @@ public class OAuth2AuthenticationFailureHandler extends SimpleUrlAuthenticationF
             throws IOException {
         log.warn("OAuth2 authentication failed: {}", exception.getMessage());
 
-        // Only a coarse error marker travels in the URL â€” never tokens or details.
+        // Only a coarse error marker travels in the URL — never tokens or details.
         String redirectUrl = UriComponentsBuilder.fromUriString(frontendUrl + frontendCallbackPath)
                 .queryParam("error", "oauth_failed")
                 .build()

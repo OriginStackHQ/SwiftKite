@@ -24,7 +24,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 /**
  * Bridges the Google redirect to the SPA. Only a short-lived, single-use
- * login code ever travels in the redirect URL â€” tokens are issued by the
+ * login code ever travels in the redirect URL — tokens are issued by the
  * exchange endpoint, never exposed to browser history or logs.
  */
 @Component
