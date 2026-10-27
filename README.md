@@ -12,6 +12,8 @@ delivery outcomes and provides controls to pause, resume, or stop a campaign.
 The project combines a web dashboard, a backend API, a database, and background
 processing to make campaign delivery manageable and more reliable.
 
+[Quick Overview Video](Demo.mp4)
+
 ## Project at a glance
 
 - **Project type:** Full-stack email campaign management platform
